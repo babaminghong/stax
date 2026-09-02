@@ -28,4 +28,12 @@
     "128": "icons/icon128.png"
   },
   "minimum_chrome_version": "114"
+  "commands": {
+    "quick-sort": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Quickly sort tabs in the current window"
+    }
 }

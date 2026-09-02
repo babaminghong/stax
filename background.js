@@ -1,22 +1,41 @@
-// Runs as a Manifest V3 service worker. Two jobs:
-//   1. Instant local sort — pure JS, no network, runs on tab changes.
-//   2. AI sort — only runs when the user asks for it, via the popup.
+// background.js - Stax Service Worker
 
 const MANAGED_GROUPS_KEY = "managedGroupIds";
 const LAST_AI_CALL_KEY = "lastAiCallTs";
-const AI_COOLDOWN_MS = 15_000;
+const AI_COOLDOWN_MS = 15000;
 
+// Upgraded rule engine: Instant local organization without needing an API key
 const LOCAL_RULES = [
-  { name: "Dev", color: "blue", test: (h, u) =>
-      /github\.com|gitlab\.com|stackoverflow\.com|developer\.mozilla\.org|npmjs\.com|localhost|127\.0\.0\.1/.test(h) },
-  { name: "Docs", color: "cyan", test: (h, u) =>
-      /^docs\.|readthedocs\.io|notion\.so/.test(h) || /\/docs\//.test(u) },
-  { name: "Comms", color: "purple", test: (h) =>
-      /mail\.google\.com|outlook\.(live|office)\.com|slack\.com|discord\.com/.test(h) },
-  { name: "Shopping", color: "orange", test: (h) =>
-      /amazon\.|ebay\.|etsy\.com/.test(h) },
-  { name: "Distraction", color: "pink", test: (h) =>
-      /youtube\.com|reddit\.com|twitter\.com|x\.com|instagram\.com|tiktok\.com|facebook\.com/.test(h) },
+  { 
+    name: "Banking & Pay", 
+    color: "green", 
+    test: (h, u) => /paypal\.com|stripe\.com|chase\.com|bankofamerica\.com|wellsfargo\.com|revolut\.com|wise\.com|venmo\.com/.test(h) || /bank|finance|wallet/.test(u) 
+  },
+  { 
+    name: "Dev & Code", 
+    color: "blue", 
+    test: (h) => /github\.com|gitlab\.com|stackoverflow\.com|developer\.mozilla\.org|npmjs\.com|localhost|127\.0\.0\.1|codepen\.io/.test(h) 
+  },
+  { 
+    name: "Docs & Reference", 
+    color: "cyan", 
+    test: (h, u) => /^docs\.|readthedocs\.io|notion\.so|wikipedia\.org|wikihow\.com/.test(h) || /\/docs\//.test(u) 
+  },
+  { 
+    name: "Comms", 
+    color: "purple", 
+    test: (h) => /mail\.google\.com|outlook\.(live|office)\.com|slack\.com|discord\.com|telegram\.org/.test(h) 
+  },
+  { 
+    name: "Media & Social", 
+    color: "pink", 
+    test: (h) => /youtube\.com|reddit\.com|twitter\.com|x\.com|instagram\.com|tiktok\.com|facebook\.com|twitch\.tv|netflix\.com|spotify\.com/.test(h) 
+  },
+  { 
+    name: "Shopping", 
+    color: "orange", 
+    test: (h) => /amazon\.|ebay\.|etsy\.com|aliexpress\.com|target\.com|walmart\.com/.test(h) 
+  }
 ];
 
 function hostnameOf(url) {
@@ -29,7 +48,8 @@ function localCategoryFor(tab) {
   for (const rule of LOCAL_RULES) {
     if (rule.test(h, u)) return { name: rule.name, color: rule.color };
   }
-  return { name: h.replace(/^www\./, "") || "Other", color: "grey" };
+  const cleanHost = h.replace(/^www\./, "");
+  return { name: cleanHost ? cleanHost.split(".")[0].toUpperCase() : "Other", color: "grey" };
 }
 
 async function getManagedGroupIds() {
@@ -96,10 +116,10 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
 });
 
 const SYSTEM_PROMPT = [
-  "You group browser tabs into short, human-readable categories (2-4 total, name each 1-2 words).",
-  "Pick a color for each category from exactly this list: grey, blue, red, yellow, green, pink, purple, cyan, orange.",
-  "Reply with ONLY a JSON array, no prose, no markdown fences. Each item: {\"id\": number, \"group\": string, \"color\": string}.",
-  "Every input id must appear exactly once in the output.",
+  "You group browser tabs into short human-readable categories.",
+  "Pick a color for each category from this list: grey, blue, red, yellow, green, pink, purple, cyan, orange.",
+  "Reply with strictly JSON array, no markdown fences. Format: [{\"id\": number, \"group\": string, \"color\": string}].",
+  "Every input id must appear once."
 ].join(" ");
 
 async function callAnthropic(apiKey, payload) {
@@ -141,12 +161,10 @@ async function callGemini(apiKey, model, payload) {
 }
 
 function friendlyError(provider, status) {
-  if (status === 401 || status === 403) {
-    return `That ${provider === "gemini" ? "Gemini" : "Anthropic"} API key was rejected. Double-check it in options.`;
-  }
-  if (status === 429) return "Rate limited — try again shortly.";
-  if (status === 400) return "The model rejected the request — try again, or check the model name in options.";
-  return `API error (${status ?? "network"}).`;
+  if (status === 401 || status === 403) return `Invalid ${provider === "gemini" ? "Gemini" : "Anthropic"} key. Check settings.`;
+  if (status === 429) return "Rate limited. Try again in a minute.";
+  if (status === 400) return "Model rejected input. Check model name in options.";
+  return `API request failed (status: ${status ?? "offline"}).`;
 }
 
 async function runAiSort(windowId) {
@@ -155,17 +173,17 @@ async function runAiSort(windowId) {
 
   const key = provider === "gemini" ? geminiApiKey : anthropicApiKey;
   if (!key) {
-    return { ok: false, error: `No ${provider === "gemini" ? "Gemini" : "Anthropic"} API key saved yet. Add one in the extension options.` };
+    return { ok: false, error: `No ${provider === "gemini" ? "Gemini" : "Anthropic"} API key set yet. Optional: add one in settings.` };
   }
 
   const { [LAST_AI_CALL_KEY]: lastTs } = await chrome.storage.local.get(LAST_AI_CALL_KEY);
   if (lastTs && Date.now() - lastTs < AI_COOLDOWN_MS) {
-    return { ok: false, error: "Give it a few seconds between AI sorts." };
+    return { ok: false, error: "Please wait a few seconds before calling AI sort again." };
   }
 
   const tabs = await chrome.tabs.query({ windowId });
   const usable = tabs.filter((t) => t.url && !t.pinned);
-  if (!usable.length) return { ok: false, error: "No tabs to sort." };
+  if (!usable.length) return { ok: false, error: "No active tabs found to group." };
 
   const payload = usable.map((t) => ({
     id: t.id,
@@ -179,7 +197,7 @@ async function runAiSort(windowId) {
       ? await callGemini(key, geminiModel, payload)
       : await callAnthropic(key, payload);
   } catch {
-    return { ok: false, error: "Couldn't reach the API. Check your connection." };
+    return { ok: false, error: "Network error. Check connection." };
   }
 
   if (!result.text) return { ok: false, error: friendlyError(provider, result.status) };
@@ -188,9 +206,9 @@ async function runAiSort(windowId) {
   try {
     parsed = JSON.parse(result.text);
   } catch {
-    return { ok: false, error: "Model reply wasn't valid JSON — try again." };
+    return { ok: false, error: "AI output wasn't valid JSON. Try again." };
   }
-  if (!Array.isArray(parsed)) return { ok: false, error: "Unexpected model reply shape." };
+  if (!Array.isArray(parsed)) return { ok: false, error: "Unexpected AI payload response shape." };
 
   const ALLOWED = new Set(["grey","blue","red","yellow","green","pink","purple","cyan","orange"]);
   const validIds = new Set(usable.map((t) => t.id));
@@ -198,34 +216,11 @@ async function runAiSort(windowId) {
     .filter((a) => validIds.has(a.id) && typeof a.group === "string" && ALLOWED.has(a.color))
     .map((a) => ({ tabId: a.id, group: a.group.slice(0, 24), color: a.color }));
 
-  if (!assignments.length) return { ok: false, error: "Model didn't return usable groupings." };
+  if (!assignments.length) return { ok: false, error: "Unable to parse tab categories." };
 
   await applyGrouping(assignments, windowId);
   await chrome.storage.local.set({ [LAST_AI_CALL_KEY]: Date.now() });
   return { ok: true, count: assignments.length };
-}
-
-async function moveTabToGroup(tabId, groupName, windowId) {
-  if (groupName === "__ungroup__") {
-    await chrome.tabs.ungroup(tabId);
-    return { ok: true };
-  }
-  const managed = await getManagedGroupIds();
-  const existingId = managed[groupName];
-  try {
-    if (existingId) {
-      await chrome.tabGroups.get(existingId);
-      await chrome.tabs.group({ tabIds: [tabId], groupId: existingId });
-    } else {
-      const groupId = await chrome.tabs.group({ tabIds: [tabId], createProperties: { windowId } });
-      await chrome.tabGroups.update(groupId, { title: groupName, color: "grey" });
-      managed[groupName] = groupId;
-      await setManagedGroupIds(managed);
-    }
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "Couldn't move that tab." };
-  }
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -236,9 +231,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "LOCAL_SORT") {
     runLocalSort(msg.windowId).then(() => sendResponse({ ok: true }));
     return true;
-  }
-  if (msg.type === "MOVE_TAB") {
-    moveTabToGroup(msg.tabId, msg.groupName, msg.windowId).then(sendResponse);
-    return true;
+
+    chrome.commands.onCommand.addListener((command) => {
+      if (command === "quick-sort") {
+        chrome.windows.getCurrent((win) => {
+          if (win.id) runLocalSort(win.id);
+      });
   }
 });
