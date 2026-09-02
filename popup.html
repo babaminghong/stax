@@ -2,33 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Stax</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <header class="head">
-    <div class="head-top">
-      <h1>Stax</h1>
-      <label class="switch" title="Auto-sort new tabs instantly">
-        <input type="checkbox" id="autoToggle" />
-        <span class="track"><span class="thumb"></span></span>
-      </label>
-    </div>
-    <p class="count" id="countLine">reading your tabs…</p>
-  </header>
+  <!-- Onboarding Screen (Shown only once per browser instance) -->
+  <div id="onboardingScreen" class="card" style="display: none;">
+    <div class="title" id="onboardTitle">Welcome to Stax ⚡</div>
+    <p class="subtitle" id="onboardSub">Quick setup (saved permanently to this browser):</p>
+    
+    <label class="label" id="lblLang">Language / Sprache</label>
+    <select id="initLang" class="select-input">
+      <option value="en">English</option>
+      <option value="de">Deutsch</option>
+    </select>
 
-  <div class="actions">
-    <button id="aiSortBtn" class="primary">Sort with AI</button>
-    <button id="localSortBtn" class="ghost">Quick sort</button>
+    <label class="label" id="lblRole">I am a / Ich bin</label>
+    <select id="initRole" class="select-input">
+      <option value="Developer">Developer / Entwickler</option>
+      <option value="Student">Student / Schüler</option>
+      <option value="PowerUser">Power User</option>
+      <option value="Other">Other / Sonstiges</option>
+    </select>
+
+    <label class="label" id="lblSource">How did you find Stax?</label>
+    <select id="initSource" class="select-input">
+      <option value="HackClub">Hack Club</option>
+      <option value="GitHub">GitHub</option>
+      <option value="Friend">Friend / Freund</option>
+      <option value="Store">Web Store</option>
+    </select>
+
+    <button id="saveOnboarding" class="btn btn-primary" style="margin-top: 12px;">Start Using Stax</button>
   </div>
 
-  <p class="status" id="status" aria-live="polite"></p>
+  <!-- Main Extension View -->
+  <div id="mainScreen" style="display: none;">
+    <div class="header">
+      <div>
+        <div class="title">Stax</div>
+        <div class="subtitle" id="subTitleText">Smart Tab Engine</div>
+      </div>
+      <span class="badge">V3 Pro</span>
+    </div>
 
-  <main id="groups" class="groups"></main>
+    <div class="card">
+      <button id="quickSort" class="btn btn-primary">⚡ Quick Sort (Local)</button>
+      <button id="dedupe" class="btn btn-secondary">🧹 Close Duplicates</button>
+    </div>
 
-  <footer class="foot">
-    <a href="options.html" target="_blank" id="optionsLink">API key & settings</a>
-  </footer>
+    <div class="card">
+      <button id="openTestTabs" class="btn btn-secondary">🚀 Open Test Tab Set</button>
+    </div>
+
+    <div class="status">
+      <a href="options.html" target="_blank" id="settingsLink" style="color: #9ca3af; text-decoration: none; font-size: 11px;">⚙️ API Key & Settings</a>
+    </div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

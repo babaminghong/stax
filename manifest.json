@@ -1,16 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Stax",
-  "version": "1.0.0",
-  "description": "Groups your open tabs by topic, color-coded, with an optional AI sort.",
-  "permissions": ["tabs", "tabGroups", "storage"],
-  "host_permissions": [
-    "https://api.anthropic.com/*",
-    "https://generativelanguage.googleapis.com/*"
+  "name": "Stax — Tab Engine",
+  "version": "1.2.0",
+  "description": "Smart tab organization powered by regex rules and optional AI.",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage"
   ],
-  "background": {
-    "service_worker": "background.js"
-  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -20,20 +17,16 @@
       "128": "icons/icon128.png"
     }
   },
-  "options_page": "options.html",
-  "icons": {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+  "background": {
+    "service_worker": "background.js"
   },
-  "minimum_chrome_version": "114"
   "commands": {
     "quick-sort": {
       "suggested_key": {
         "default": "Alt+S",
         "mac": "Command+Shift+S"
       },
-      "description": "Quickly sort tabs in the current window"
+      "description": "Trigger Stax local tab sorting"
     }
+  }
 }

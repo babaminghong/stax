@@ -1,4 +1,4 @@
-// background.js - Stax Service Worker
+// background.js - Stax Core Engine
 
 const MANAGED_GROUPS_KEY = "managedGroupIds";
 const LAST_AI_CALL_KEY = "lastAiCallTs";
@@ -42,6 +42,13 @@ function hostnameOf(url) {
   try { return new URL(url).hostname; } catch { return ""; }
 }
 
+function isValidTab(tab) {
+  if (!tab.url || tab.pinned) return false;
+  // Ignore browser internal pages that crash chrome.tabs.group
+  if (/^(chrome|brave|edge|about|devtools):/.test(tab.url)) return false;
+  return true;
+}
+
 function localCategoryFor(tab) {
   const h = hostnameOf(tab.url || "");
   const u = tab.url || "";
@@ -50,6 +57,14 @@ function localCategoryFor(tab) {
   }
   const cleanHost = h.replace(/^www\./, "");
   return { name: cleanHost ? cleanHost.split(".")[0].toUpperCase() : "Other", color: "grey" };
+}
+
+// Keep the extension badge updated with open tab count
+async function updateBadge() {
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const count = tabs.length;
+  chrome.action.setBadgeText({ text: count ? count.toString() : "" });
+  chrome.action.setBadgeBackgroundColor({ color: "#6366f1" });
 }
 
 async function getManagedGroupIds() {
@@ -92,17 +107,15 @@ async function applyGrouping(assignments, windowId) {
 
 let localSortTimer = null;
 function scheduleLocalSort(windowId) {
+  updateBadge();
   clearTimeout(localSortTimer);
   localSortTimer = setTimeout(() => runLocalSort(windowId), 400);
 }
 
 async function runLocalSort(windowId) {
-  const { autoSortEnabled } = await chrome.storage.local.get("autoSortEnabled");
-  if (autoSortEnabled === false) return;
-
   const tabs = await chrome.tabs.query({ windowId });
   const assignments = tabs
-    .filter((t) => t.url && !t.pinned)
+    .filter(isValidTab)
     .map((t) => {
       const { name, color } = localCategoryFor(t);
       return { tabId: t.id, group: name, color };
@@ -110,132 +123,54 @@ async function runLocalSort(windowId) {
   if (assignments.length) await applyGrouping(assignments, windowId);
 }
 
+// Power User Feature: Close duplicate tabs instantly
+async function removeDuplicates(windowId) {
+  const tabs = await chrome.tabs.query({ windowId });
+  const seenUrls = new Set();
+  const duplicateTabIds = [];
+
+  for (const tab of tabs) {
+    if (tab.url && !tab.pinned) {
+      if (seenUrls.has(tab.url)) {
+        duplicateTabIds.push(tab.id);
+      } else {
+        seenUrls.add(tab.url);
+      }
+    }
+  }
+
+  if (duplicateTabIds.length) {
+    await chrome.tabs.remove(duplicateTabIds);
+  }
+  updateBadge();
+  return duplicateTabIds.length;
+}
+
+// Event Listeners for Tab Life Cycle
 chrome.tabs.onCreated.addListener((tab) => scheduleLocalSort(tab.windowId));
+chrome.tabs.onRemoved.addListener(() => updateBadge());
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  updateBadge();
   if (info.status === "complete") scheduleLocalSort(tab.windowId);
 });
 
-const SYSTEM_PROMPT = [
-  "You group browser tabs into short human-readable categories.",
-  "Pick a color for each category from this list: grey, blue, red, yellow, green, pink, purple, cyan, orange.",
-  "Reply with strictly JSON array, no markdown fences. Format: [{\"id\": number, \"group\": string, \"color\": string}].",
-  "Every input id must appear once."
-].join(" ");
-
-async function callAnthropic(apiKey, payload) {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: JSON.stringify(payload) }],
-    }),
-  });
-  if (!resp.ok) return { text: null, status: resp.status };
-  const data = await resp.json();
-  const text = (data.content || []).map((b) => b.text || "").join("").trim();
-  return { text, status: resp.status };
-}
-
-async function callGemini(apiKey, model, payload) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: `${SYSTEM_PROMPT}\n\nTabs:\n${JSON.stringify(payload)}` }] }],
-      generationConfig: { response_mime_type: "application/json" },
-    }),
-  });
-  if (!resp.ok) return { text: null, status: resp.status };
-  const data = await resp.json();
-  const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim();
-  return { text, status: resp.status };
-}
-
-function friendlyError(provider, status) {
-  if (status === 401 || status === 403) return `Invalid ${provider === "gemini" ? "Gemini" : "Anthropic"} key. Check settings.`;
-  if (status === 429) return "Rate limited. Try again in a minute.";
-  if (status === 400) return "Model rejected input. Check model name in options.";
-  return `API request failed (status: ${status ?? "offline"}).`;
-}
-
-async function runAiSort(windowId) {
-  const { provider = "anthropic", anthropicApiKey, geminiApiKey, geminiModel = "gemini-flash-latest" } =
-    await chrome.storage.local.get(["provider", "anthropicApiKey", "geminiApiKey", "geminiModel"]);
-
-  const key = provider === "gemini" ? geminiApiKey : anthropicApiKey;
-  if (!key) {
-    return { ok: false, error: `No ${provider === "gemini" ? "Gemini" : "Anthropic"} API key set yet. Optional: add one in settings.` };
+// Keyboard Hotkeys
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "quick-sort") {
+    chrome.windows.getCurrent((win) => {
+      if (win.id) runLocalSort(win.id);
+    });
   }
+});
 
-  const { [LAST_AI_CALL_KEY]: lastTs } = await chrome.storage.local.get(LAST_AI_CALL_KEY);
-  if (lastTs && Date.now() - lastTs < AI_COOLDOWN_MS) {
-    return { ok: false, error: "Please wait a few seconds before calling AI sort again." };
-  }
-
-  const tabs = await chrome.tabs.query({ windowId });
-  const usable = tabs.filter((t) => t.url && !t.pinned);
-  if (!usable.length) return { ok: false, error: "No active tabs found to group." };
-
-  const payload = usable.map((t) => ({
-    id: t.id,
-    title: (t.title || "").slice(0, 120),
-    host: hostnameOf(t.url),
-  }));
-
-  let result;
-  try {
-    result = provider === "gemini"
-      ? await callGemini(key, geminiModel, payload)
-      : await callAnthropic(key, payload);
-  } catch {
-    return { ok: false, error: "Network error. Check connection." };
-  }
-
-  if (!result.text) return { ok: false, error: friendlyError(provider, result.status) };
-
-  let parsed;
-  try {
-    parsed = JSON.parse(result.text);
-  } catch {
-    return { ok: false, error: "AI output wasn't valid JSON. Try again." };
-  }
-  if (!Array.isArray(parsed)) return { ok: false, error: "Unexpected AI payload response shape." };
-
-  const ALLOWED = new Set(["grey","blue","red","yellow","green","pink","purple","cyan","orange"]);
-  const validIds = new Set(usable.map((t) => t.id));
-  const assignments = parsed
-    .filter((a) => validIds.has(a.id) && typeof a.group === "string" && ALLOWED.has(a.color))
-    .map((a) => ({ tabId: a.id, group: a.group.slice(0, 24), color: a.color }));
-
-  if (!assignments.length) return { ok: false, error: "Unable to parse tab categories." };
-
-  await applyGrouping(assignments, windowId);
-  await chrome.storage.local.set({ [LAST_AI_CALL_KEY]: Date.now() });
-  return { ok: true, count: assignments.length };
-}
-
+// Message Routing for Popup UI
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "AI_SORT") {
-    runAiSort(msg.windowId).then(sendResponse);
-    return true;
-  }
   if (msg.type === "LOCAL_SORT") {
     runLocalSort(msg.windowId).then(() => sendResponse({ ok: true }));
     return true;
-
-    chrome.commands.onCommand.addListener((command) => {
-      if (command === "quick-sort") {
-        chrome.windows.getCurrent((win) => {
-          if (win.id) runLocalSort(win.id);
-      });
+  }
+  if (msg.type === "REMOVE_DUPLICATES") {
+    removeDuplicates(msg.windowId).then((count) => sendResponse({ ok: true, removed: count }));
+    return true;
   }
 });
