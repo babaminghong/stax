@@ -5,57 +5,67 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <!-- Onboarding Screen (Shown only once per browser instance) -->
-  <div id="onboardingScreen" class="card" style="display: none;">
-    <div class="title" id="onboardTitle">Welcome to Stax ⚡</div>
-    <p class="subtitle" id="onboardSub">Quick setup (saved permanently to this browser):</p>
-    
-    <label class="label" id="lblLang">Language / Sprache</label>
-    <select id="initLang" class="select-input">
-      <option value="en">English</option>
-      <option value="de">Deutsch</option>
-    </select>
-
-    <label class="label" id="lblRole">I am a / Ich bin</label>
-    <select id="initRole" class="select-input">
-      <option value="Developer">Developer / Entwickler</option>
-      <option value="Student">Student / Schüler</option>
-      <option value="PowerUser">Power User</option>
-      <option value="Other">Other / Sonstiges</option>
-    </select>
-
-    <label class="label" id="lblSource">How did you find Stax?</label>
-    <select id="initSource" class="select-input">
-      <option value="HackClub">Hack Club</option>
-      <option value="GitHub">GitHub</option>
-      <option value="Friend">Friend / Freund</option>
-      <option value="Store">Web Store</option>
-    </select>
-
-    <button id="saveOnboarding" class="btn btn-primary" style="margin-top: 12px;">Start Using Stax</button>
-  </div>
-
-  <!-- Main Extension View -->
-  <div id="mainScreen" style="display: none;">
-    <div class="header">
-      <div>
-        <div class="title">Stax</div>
-        <div class="subtitle" id="subTitleText">Smart Tab Engine</div>
+  <div class="popup-container">
+    <!-- Onboarding View -->
+    <div id="onboardingScreen" class="card" style="display: none;">
+      <div class="brand">
+        <div class="title">Welcome to Stax ⚡</div>
+        <div class="subtitle">Quick setup saved to this browser</div>
       </div>
-      <span class="badge">V3 Pro</span>
+      
+      <div class="form-group">
+        <label class="label">Language / Sprache</label>
+        <select id="initLang" class="select-input">
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label">I am a / Ich bin</label>
+        <select id="initRole" class="select-input">
+          <option value="Developer">Developer / Entwickler</option>
+          <option value="Student">Student / Schüler</option>
+          <option value="PowerUser">Power User</option>
+          <option value="Other">Other / Sonstiges</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label">How did you find Stax?</label>
+        <select id="initSource" class="select-input">
+          <option value="HackClub">Hack Club</option>
+          <option value="GitHub">GitHub</option>
+          <option value="Friend">Friend / Freund</option>
+          <option value="Store">Web Store</option>
+        </select>
+      </div>
+
+      <button id="saveOnboarding" class="btn btn-primary btn-block">Start Using Stax</button>
     </div>
 
-    <div class="card">
-      <button id="quickSort" class="btn btn-primary">⚡ Quick Sort (Local)</button>
-      <button id="dedupe" class="btn btn-secondary">🧹 Close Duplicates</button>
-    </div>
+    <!-- Main Extension View -->
+    <div id="mainScreen" style="display: none;">
+      <div class="header">
+        <div>
+          <div class="title">Stax</div>
+          <div class="subtitle" id="subTitleText">Smart Tab Engine</div>
+        </div>
+        <span class="badge">V3 Pro</span>
+      </div>
 
-    <div class="card">
-      <button id="openTestTabs" class="btn btn-secondary">🚀 Open Test Tab Set</button>
-    </div>
+      <div class="card space-y">
+        <button id="quickSort" class="btn btn-primary btn-block">⚡ Quick Sort (Local)</button>
+        <button id="dedupe" class="btn btn-secondary btn-block">🧹 Close Duplicates</button>
+      </div>
 
-    <div class="status">
-      <a href="options.html" target="_blank" id="settingsLink" style="color: #9ca3af; text-decoration: none; font-size: 11px;">⚙️ API Key & Settings</a>
+      <div class="card">
+        <button id="openTestTabs" class="btn btn-secondary btn-block">🚀 Open Test Tab Set</button>
+      </div>
+
+      <div class="status">
+        <a href="options.html" target="_blank" id="settingsLink" class="settings-link">⚙️ API Key & Settings</a>
+      </div>
     </div>
   </div>
 
