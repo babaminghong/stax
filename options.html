@@ -2,69 +2,172 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Stax — Settings</title>
+  <title>Stax Settings</title>
   <style>
+    :root {
+      --bg: #090a0f;
+      --panel: #12151e;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --text: #f3f4f6;
+      --subtext: #9ca3af;
+      --border: #1f2937;
+    }
+
     body {
-      background: #1b1f2e; color: #e9e6dd;
-      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-      max-width: 480px; margin: 40px auto; padding: 0 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      max-width: 440px;
+      margin: 40px auto;
+      padding: 0 20px;
     }
-    h1 { font-size: 18px; font-weight: 650; }
-    p.note { color: #8b90a6; font-size: 13px; line-height: 1.5; }
-    label { display: block; margin: 18px 0 6px; font-size: 13px; color: #8b90a6; }
+
+    .header {
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+      background: linear-gradient(135deg, #ffffff 0%, #9ca3af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.note {
+      color: var(--subtext);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--subtext);
+    }
+
+    label:first-of-type {
+      margin-top: 0;
+    }
+
     input[type="password"], input[type="text"], select {
-      width: 100%; padding: 9px 10px; border-radius: 8px;
-      border: 1px solid #333a54; background: #242a3d; color: #e9e6dd; font-size: 13px;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #181c28;
+      color: var(--text);
+      font-size: 13px;
+      transition: border-color 0.2s ease;
     }
-    input:focus-visible, select:focus-visible { outline: 2px solid #e3a857; }
-    .row { display: flex; gap: 8px; margin-top: 14px; }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
     button {
-      font: inherit; border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+      flex: 1;
+      font-family: inherit;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
-    #save { background: #e3a857; color: #1b1f2e; font-weight: 600; }
-    #save:hover { background: #ecb46d; }
-    #clear { background: #242a3d; color: #e9e6dd; }
-    #clear:hover { background: #2b3249; }
-    #msg { font-size: 12.5px; margin-top: 10px; min-height: 16px; }
-    .ok { color: #57bb8a; }
-    .err { color: #e8615b; }
-    a { color: #8b90a6; }
+
+    #save {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    }
+
+    #save:hover {
+      background: var(--accent-hover);
+    }
+
+    #clear {
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    #clear:hover {
+      background: #334155;
+    }
+
+    #msg {
+      font-size: 12px;
+      margin-top: 12px;
+      min-height: 16px;
+      text-align: center;
+    }
+
+    .ok { color: #10b981; }
+    .err { color: #ef4444; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { background: #1f2937; padding: 2px 5px; border-radius: 4px; font-size: 11px; }
   </style>
 </head>
 <body>
-  <h1>Stax — Settings</h1>
-  <p class="note">
-    Your key is stored only in this browser's local extension storage
-    (<code>chrome.storage.local</code>) — it is never synced, sent anywhere
-    except directly to the provider's API, or logged.
-  </p>
-
-  <label for="provider">AI provider</label>
-  <select id="provider">
-    <option value="anthropic">Anthropic (Claude)</option>
-    <option value="gemini">Google Gemini — free tier</option>
-  </select>
-
-  <div id="anthropicFields">
-    <label for="key">Anthropic API key</label>
-    <input type="password" id="key" placeholder="sk-ant-…" autocomplete="off" />
-    <p class="note">Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>. New accounts get a small free trial credit.</p>
+  <div class="header">
+    <h1>Stax Settings</h1>
+    <p class="note">
+      Your API keys are stored locally in <code>chrome.storage.local</code> and sent directly to provider endpoints.
+    </p>
   </div>
 
-  <div id="geminiFields">
-    <label for="geminiKey">Gemini API key</label>
-    <input type="password" id="geminiKey" placeholder="AIza…" autocomplete="off" />
-    <p class="note">Free, no card required — get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
-    <label for="geminiModel">Model name</label>
-    <input type="text" id="geminiModel" placeholder="gemini-flash-latest" />
-    <p class="note">Free-tier model names change over time — check
-      <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener">ai.google.dev/gemini-api/docs/pricing</a>
-      if this stops working and swap in whatever Flash model is currently free.</p>
+  <div class="card">
+    <label for="provider">AI Provider</label>
+    <select id="provider">
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="gemini">Google Gemini (Free Tier)</option>
+    </select>
+
+    <div id="anthropicFields">
+      <label for="key">Anthropic API Key</label>
+      <input type="password" id="key" placeholder="sk-ant-…" autocomplete="off" />
+      <p class="note">Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+    </div>
+
+    <div id="geminiFields">
+      <label for="geminiKey">Gemini API Key</label>
+      <input type="password" id="geminiKey" placeholder="AIza…" autocomplete="off" />
+      <p class="note">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
+      
+      <label for="geminiModel">Model Name</label>
+      <input type="text" id="geminiModel" placeholder="gemini-flash-latest" />
+      <p class="note">Adjust if Google updates free tier model defaults.</p>
+    </div>
   </div>
 
   <div class="row">
-    <button id="save">Save</button>
-    <button id="clear">Remove keys</button>
+    <button id="save">Save Settings</button>
+    <button id="clear">Clear Keys</button>
   </div>
   <p id="msg"></p>
 
