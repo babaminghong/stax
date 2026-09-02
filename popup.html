@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stax</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="head">
+    <div class="head-top">
+      <h1>Stax</h1>
+      <label class="switch" title="Auto-sort new tabs instantly">
+        <input type="checkbox" id="autoToggle" />
+        <span class="track"><span class="thumb"></span></span>
+      </label>
+    </div>
+    <p class="count" id="countLine">reading your tabs…</p>
+  </header>
+
+  <div class="actions">
+    <button id="aiSortBtn" class="primary">Sort with AI</button>
+    <button id="localSortBtn" class="ghost">Quick sort</button>
+  </div>
+
+  <p class="status" id="status" aria-live="polite"></p>
+
+  <main id="groups" class="groups"></main>
+
+  <footer class="foot">
+    <a href="options.html" target="_blank" id="optionsLink">API key & settings</a>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

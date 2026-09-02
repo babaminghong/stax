@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stax — Settings</title>
+  <style>
+    body {
+      background: #1b1f2e; color: #e9e6dd;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      max-width: 480px; margin: 40px auto; padding: 0 20px;
+    }
+    h1 { font-size: 18px; font-weight: 650; }
+    p.note { color: #8b90a6; font-size: 13px; line-height: 1.5; }
+    label { display: block; margin: 18px 0 6px; font-size: 13px; color: #8b90a6; }
+    input[type="password"], input[type="text"], select {
+      width: 100%; padding: 9px 10px; border-radius: 8px;
+      border: 1px solid #333a54; background: #242a3d; color: #e9e6dd; font-size: 13px;
+    }
+    input:focus-visible, select:focus-visible { outline: 2px solid #e3a857; }
+    .row { display: flex; gap: 8px; margin-top: 14px; }
+    button {
+      font: inherit; border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+    }
+    #save { background: #e3a857; color: #1b1f2e; font-weight: 600; }
+    #save:hover { background: #ecb46d; }
+    #clear { background: #242a3d; color: #e9e6dd; }
+    #clear:hover { background: #2b3249; }
+    #msg { font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+    .ok { color: #57bb8a; }
+    .err { color: #e8615b; }
+    a { color: #8b90a6; }
+  </style>
+</head>
+<body>
+  <h1>Stax — Settings</h1>
+  <p class="note">
+    Your key is stored only in this browser's local extension storage
+    (<code>chrome.storage.local</code>) — it is never synced, sent anywhere
+    except directly to the provider's API, or logged.
+  </p>
+
+  <label for="provider">AI provider</label>
+  <select id="provider">
+    <option value="anthropic">Anthropic (Claude)</option>
+    <option value="gemini">Google Gemini — free tier</option>
+  </select>
+
+  <div id="anthropicFields">
+    <label for="key">Anthropic API key</label>
+    <input type="password" id="key" placeholder="sk-ant-…" autocomplete="off" />
+    <p class="note">Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>. New accounts get a small free trial credit.</p>
+  </div>
+
+  <div id="geminiFields">
+    <label for="geminiKey">Gemini API key</label>
+    <input type="password" id="geminiKey" placeholder="AIza…" autocomplete="off" />
+    <p class="note">Free, no card required — get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
+    <label for="geminiModel">Model name</label>
+    <input type="text" id="geminiModel" placeholder="gemini-flash-latest" />
+    <p class="note">Free-tier model names change over time — check
+      <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener">ai.google.dev/gemini-api/docs/pricing</a>
+      if this stops working and swap in whatever Flash model is currently free.</p>
+  </div>
+
+  <div class="row">
+    <button id="save">Save</button>
+    <button id="clear">Remove keys</button>
+  </div>
+  <p id="msg"></p>
+
+  <script src="options.js"></script>
+</body>
+</html>

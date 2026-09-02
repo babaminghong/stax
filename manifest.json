@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Stax",
+  "version": "1.0.0",
+  "description": "Groups your open tabs by topic, color-coded, with an optional AI sort.",
+  "permissions": ["tabs", "tabGroups", "storage"],
+  "host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "minimum_chrome_version": "114"
+}
