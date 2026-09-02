@@ -117,4 +117,14 @@ autoToggle.addEventListener("change", async () => {
   const { autoSortEnabled } = await chrome.storage.local.get("autoSortEnabled");
   autoToggle.checked = autoSortEnabled !== false; // default on
   await render();
+  document.getElementById("openTestTabs")?.addEventListener("click", () => {
+  const testUrls = [
+    "https://github.com",
+    "https://wikipedia.org",
+    "https://paypal.com",
+    "https://youtube.com",
+    "https://notion.so"
+  ];
+  testUrls.forEach((url) => chrome.tabs.create({ url, active: false }));
+});
 })();
