@@ -2,175 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Stax Settings</title>
+  <link rel="stylesheet" href="popup.css" />
   <style>
-    :root {
-      --bg: #090a0f;
-      --panel: #12151e;
-      --accent: #6366f1;
-      --accent-hover: #4f46e5;
-      --text: #f3f4f6;
-      --subtext: #9ca3af;
-      --border: #1f2937;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-      max-width: 440px;
-      margin: 40px auto;
-      padding: 0 20px;
-    }
-
-    .header {
-      margin-bottom: 20px;
-    }
-
-    h1 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin: 0 0 6px;
-      background: linear-gradient(135deg, #ffffff 0%, #9ca3af 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    p.note {
-      color: var(--subtext);
-      font-size: 12px;
-      line-height: 1.5;
-      margin-top: 4px;
-    }
-
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-
-    label {
-      display: block;
-      margin: 12px 0 6px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--subtext);
-    }
-
-    label:first-of-type {
-      margin-top: 0;
-    }
-
-    input[type="password"], input[type="text"], select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #181c28;
-      color: var(--text);
-      font-size: 13px;
-      transition: border-color 0.2s ease;
-    }
-
-    input:focus, select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    button {
-      flex: 1;
-      font-family: inherit;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    #save {
-      background: var(--accent);
-      color: #ffffff;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
-    }
-
-    #save:hover {
-      background: var(--accent-hover);
-    }
-
-    #clear {
-      background: #1e293b;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    #clear:hover {
-      background: #334155;
-    }
-
-    #msg {
-      font-size: 12px;
-      margin-top: 12px;
-      min-height: 16px;
-      text-align: center;
-    }
-
-    .ok { color: #10b981; }
-    .err { color: #ef4444; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    code { background: #1f2937; padding: 2px 5px; border-radius: 4px; font-size: 11px; }
+    body { width: 100% !important; max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+    .rule-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .text-input { flex: 1; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>Stax Settings</h1>
-    <p class="note">
-      Your API keys are stored locally in <code>chrome.storage.local</code> and sent directly to provider endpoints.
-    </p>
+    <div>
+      <div class="title" style="font-size: 24px;">Stax Rules & Workspaces ⚙️</div>
+      <div class="subtitle">Configure automated domain mapping and cloud sync</div>
+    </div>
   </div>
 
   <div class="card">
-    <label for="provider">AI Provider</label>
-    <select id="provider">
-      <option value="anthropic">Anthropic (Claude)</option>
-      <option value="gemini">Google Gemini (Free Tier)</option>
-    </select>
-
-    <div id="anthropicFields">
-      <label for="key">Anthropic API Key</label>
-      <input type="password" id="key" placeholder="sk-ant-…" autocomplete="off" />
-      <p class="note">Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+    <div class="title" style="font-size: 16px; margin-bottom: 12px;">Custom Domain Categorization Engine</div>
+    <div id="rulesList">
+      <div class="rule-row">
+        <input type="text" class="text-input" value="jira.com, github.com" placeholder="Domains or Regex" />
+        <input type="text" class="text-input" value="Development" placeholder="Group Name" />
+        <select class="select-input" style="width: 120px;">
+          <option value="blue" selected>Blue</option>
+          <option value="purple">Purple</option>
+          <option value="green">Green</option>
+        </select>
+      </div>
     </div>
-
-    <div id="geminiFields">
-      <label for="geminiKey">Gemini API Key</label>
-      <input type="password" id="geminiKey" placeholder="AIza…" autocomplete="off" />
-      <p class="note">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
-      
-      <label for="geminiModel">Model Name</label>
-      <input type="text" id="geminiModel" placeholder="gemini-flash-latest" />
-      <p class="note">Adjust if Google updates free tier model defaults.</p>
-    </div>
+    <button id="addRule" class="btn btn-secondary" style="margin-top: 10px;">+ Add Custom Rule</button>
   </div>
 
-  <div class="row">
-    <button id="save">Save Settings</button>
-    <button id="clear">Clear Keys</button>
-  </div>
-  <p id="msg"></p>
-
+  <button id="saveOptions" class="btn btn-primary btn-block" style="margin-top: 20px;">Save Settings</button>
   <script src="options.js"></script>
 </body>
 </html>

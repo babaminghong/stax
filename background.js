@@ -174,3 +174,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 });
+
+// Snooze tabs idle for longer than the trhreshold (default 30 minutes)
+async function snoozeInactivTabs(maxIdleMinutes = 30) {
+  const tabs = await chrome.tabs.query({active: false, pinned: false, discared: false});
+  const cutoff = Date.now() - (naxIdleMinutes * 60 * 1000);
+
+  for (const tab of tabs) {
+    if (tab.lastAccessed && tab.lastAccessed < cutoff) {
+      // Unloads page contents from Ram while keeping Tab visible
+      await chrome.tabs.discard(tab.id);
+    }
+  }
+}
+
+// RUn memory cleanup check every 15 minutes
+chrome.alarms.create("snoozeCheck", { periodInMinutes: 15 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "snoozeCheck") snoozeInactiveTabs(30);
+});
+
+// Save current window tab groups as a named workspace
+async function saveWorkspace(workspaceName) {
+  const groups = await chrome.tabGroups.query({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+  const tabs = await chrome.tabs.query({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+
+  const snapshot = groups.map(group => ({
+    title: group.title,
+    color: group.color,
+    urls: tabs.filter(t => t.groupId === group.id).map(t => t.url)
+  }));
+
+  const { workspaces = {} } = await chrome.storage.local.get("workspaces");
+  workspaces[workspaceName] = snapshot;
+  await chrome.storage.local.set({ workspaces });
+}
