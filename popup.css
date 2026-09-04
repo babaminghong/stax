@@ -1,199 +1,773 @@
 :root {
-  --bg-base: #090d16;
-  --glass-bg: rgba(15, 23, 42, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-border-glow: rgba(99, 102, 241, 0.4);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --accent-glow: rgba(99, 102, 241, 0.25);
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --secondary: rgba(30, 41, 59, 0.8);
-  --secondary-hover: rgba(51, 65, 85, 0.9);
+  color-scheme: light dark;
+
+  /* Cream base, matching the Stardance project banner */
+  --systemBackground: #faf6ec;
+  --card-bg: #ffffff;
+  --card-bg-solid: #ffffff;
+  --border: rgba(23, 21, 15, 0.09);
+  --separator: rgba(23, 21, 15, 0.10);
+
+  --label: #17151f;
+  --secondaryLabel: rgba(23, 21, 31, 0.62);
+  --tertiaryLabel: rgba(23, 21, 31, 0.36);
+
+  --systemGrey5: #efe9d8;
+  --systemGrey6: #f3efe2;
+
+  /* Primary accent = the Stardance "Post a devlog" yellow pill */
+  --accent-yellow: #f7c948;
+  --accent-yellow-hover: #ffd666;
+  --accent-ink: #17151f;
+
+  /* Soft sparkle gradient for the AI action — pastel, not neon */
+  --gradient-ai: linear-gradient(135deg, #f8b6d9, #f7c948 55%, #b7e0c8);
+
+  /* Pastel tag-chip palette (bg + matching ink), lifted straight from the
+     RESEARCH / DOCS / DESIGN / STARDANCE chips on the project banner */
+  --chip-blue-bg: #cfe3fb;   --chip-blue-ink: #1d4e89;
+  --chip-green-bg: #d9f2df;  --chip-green-ink: #1f6b3a;
+  --chip-pink-bg: #fbdce7;   --chip-pink-ink: #9c2f56;
+  --chip-yellow-bg: #fdeec4; --chip-yellow-ink: #8a6d1a;
+  --chip-purple-bg: #e6dcfb; --chip-purple-ink: #5b3aa0;
+  --chip-orange-bg: #fbe4cf; --chip-orange-ink: #9c5a1f;
+  --chip-cyan-bg: #d3f3f5;   --chip-cyan-ink: #206b73;
+  --chip-red-bg: #fbdcdc;    --chip-red-ink: #9c2f2f;
+  --chip-grey-bg: #eceae3;   --chip-grey-ink: #55524a;
+
+  --radius-lg: 18px;
+  --radius-md: 13px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Dark mode = the slate card look from lower on the same project page,
+   pastel chips kept identical so the brand language carries over intact.
+   This block only fires when the OS is dark AND the user hasn't picked an
+   explicit theme below — the [data-theme] rules further down always win. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --systemBackground: #17151f;
+    --card-bg: #2b2940;
+    --card-bg-solid: #2b2940;
+    --border: rgba(255, 255, 255, 0.09);
+    --separator: rgba(255, 255, 255, 0.12);
+
+    --label: #f5f1e8;
+    --secondaryLabel: rgba(245, 241, 232, 0.64);
+    --tertiaryLabel: rgba(245, 241, 232, 0.36);
+
+    --systemGrey5: #363352;
+    --systemGrey6: #2f2c46;
+  }
+}
+
+/* Explicit theme override (from the Preferences toggle) — always wins over
+   the OS setting, in either direction. */
+:root[data-theme="dark"] {
+  --systemBackground: #17151f;
+  --card-bg: #2b2940;
+  --card-bg-solid: #2b2940;
+  --border: rgba(255, 255, 255, 0.09);
+  --separator: rgba(255, 255, 255, 0.12);
+
+  --label: #f5f1e8;
+  --secondaryLabel: rgba(245, 241, 232, 0.64);
+  --tertiaryLabel: rgba(245, 241, 232, 0.36);
+
+  --systemGrey5: #363352;
+  --systemGrey6: #2f2c46;
+}
+
+:root[data-theme="light"] {
+  --systemBackground: #faf6ec;
+  --card-bg: #ffffff;
+  --card-bg-solid: #ffffff;
+  --border: rgba(23, 21, 15, 0.09);
+  --separator: rgba(23, 21, 15, 0.10);
+
+  --label: #17151f;
+  --secondaryLabel: rgba(23, 21, 31, 0.62);
+  --tertiaryLabel: rgba(23, 21, 31, 0.36);
+
+  --systemGrey5: #efe9d8;
+  --systemGrey6: #f3efe2;
+}
+
+/* Popup windows in Chromium are always a plain rectangle at the OS level —
+   CSS border-radius on html/body doesn't reliably reshape that frame across
+   Chrome/Brave/Arc, and forcing it just produced a rounded card floating
+   inside a visible square edge. Dropped entirely: the fix is a single flush
+   background with no competing outer shape, same as Trust Wallet/Exodus/
+   MetaMask popups — square window, everything inside it reads as clean
+   because nothing is trying to fight the window's real shape. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--systemGrey5) transparent;
+}
+
+/* Custom in-app scrollbars everywhere — thin, rounded, no arrow buttons,
+   nothing that reads as "the browser's own chrome" bleeding into the UI. */
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--systemGrey5);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--tertiaryLabel); }
+*::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+*::-webkit-scrollbar-corner { background: transparent; }
 
 body {
   margin: 0;
   padding: 0;
-  width: 340px;
-  background-color: var(--bg-base);
-  background-image: 
-    radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 90% 90%, rgba(14, 165, 233, 0.08) 0%, transparent 40%);
-  color: var(--text-main);
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  box-sizing: border-box;
+  width: 380px;
+  background-color: var(--systemBackground);
+  color: var(--label);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease;
 }
 
-.popup-container {
-  padding: 16px;
+.popup-container { position: relative; z-index: 1; padding: 16px; }
+
+/* Full-bleed screen wrapper for top-level views (onboarding, settings) —
+   deliberately NOT a .card. No background/shadow of its own means it can
+   never create the "rounded box inside a square" mismatch; it just is the
+   page. Inline .card sections still nest fine inside it. */
+.screen-flush { padding: 0; }
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
-.brand {
-  margin-bottom: 14px;
+.card, .header {
+  animation: riseIn 0.42s var(--ease-out) both;
+}
+.card:nth-of-type(1) { animation-delay: 0.02s; }
+.card:nth-of-type(2) { animation-delay: 0.08s; }
+.card:nth-of-type(3) { animation-delay: 0.14s; }
+.card:nth-of-type(4) { animation-delay: 0.20s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 
 .title {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
-  color: var(--text-main);
-  letter-spacing: -0.03em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  letter-spacing: -0.02em;
+  color: var(--label);
 }
 
 .subtitle {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 3px;
+  font-size: 12.5px;
   font-weight: 400;
+  color: var(--secondaryLabel);
+  margin-top: 1px;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--glass-border);
+  align-items: flex-start;
+  margin-bottom: 16px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--systemGrey5);
+  color: var(--secondaryLabel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: transform 0.2s var(--spring), background 0.15s ease;
+}
+.icon-btn:hover { background: var(--systemGrey6); transform: rotate(25deg); }
+.icon-btn:active { transform: scale(0.88) rotate(25deg); }
+
 .badge {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(14, 165, 233, 0.2));
-  color: #818cf8;
+  background: var(--accent-yellow);
+  color: var(--accent-ink);
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(247, 201, 72, 0.4);
+}
+
+/* Quiet version tag — replaces the old "V3 Pro" marketing badge. A real
+   version number reads as a maintained tool; a fake tier name reads as a
+   template. */
+.version-badge {
+  background: var(--systemGrey5);
+  color: var(--tertiaryLabel);
   font-size: 10px;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
-  letter-spacing: 0.05em;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 14px;
   margin-bottom: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  transition: border-color 0.2s ease;
-}
-
-.card:hover {
-  border-color: var(--glass-border-glow);
-}
-
-.space-y > * + * {
-  margin-top: 8px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(23, 21, 15, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .label {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  font-weight: 800;
+  color: var(--tertiaryLabel);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
 }
 
-.select-input {
-  width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid var(--glass-border);
-  background-color: rgba(15, 23, 42, 0.9);
-  color: var(--text-main);
-  font-size: 13px;
-  font-weight: 500;
-  outline: none;
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.space-y > * + * { margin-top: 8px; }
+
+/* Segmented control (used in a couple of legacy spots; chips are primary now) */
+.button-toggle {
+  display: flex;
+  background: var(--systemGrey6);
+  padding: 2px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  color: var(--secondaryLabel);
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background 0.25s var(--spring), color 0.25s var(--spring);
 }
 
-.select-input:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.select-input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-  background-color: #0f172a;
+.toggle-btn.active {
+  background: var(--accent-yellow);
+  color: var(--accent-ink);
+  box-shadow: 0 2px 8px rgba(247, 201, 72, 0.4);
 }
 
 .btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   height: 40px;
   border: none;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: var(--radius-pill);
+  font-size: 13.5px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  letter-spacing: -0.01em;
+  transition: transform 0.18s var(--spring), box-shadow 0.2s ease, opacity 0.15s ease, filter 0.15s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.btn-block {
-  width: 100%;
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.btn-block { width: 100%; }
+
+.btn::after {
+  content: "";
+  position: absolute;
+  top: 0; left: -60%;
+  width: 40%; height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-20deg);
+  transition: transform 0.6s var(--ease-out);
+  pointer-events: none;
 }
+.btn:hover::after { transform: translateX(260%) skewX(-20deg); }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: #ffffff;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--accent-yellow);
+  color: var(--accent-ink);
+  box-shadow: 0 4px 14px rgba(247, 201, 72, 0.45);
 }
-
-.btn-primary:hover {
-  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-  transform: translateY(-1px);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
+.btn-primary:hover:not(:disabled) { background: var(--accent-yellow-hover); box-shadow: 0 6px 18px rgba(247, 201, 72, 0.55); }
 
 .btn-secondary {
-  background: var(--secondary);
-  color: var(--text-main);
-  border: 1px solid var(--glass-border);
+  background: var(--systemGrey5);
+  color: var(--label);
+}
+.btn-secondary:hover:not(:disabled) { filter: brightness(0.97); }
+@media (prefers-color-scheme: dark) {
+  .btn-secondary:hover:not(:disabled) { filter: brightness(1.15); }
 }
 
-.btn-secondary:hover {
-  background: var(--secondary-hover);
-  border-color: rgba(255, 255, 255, 0.15);
+/* Demoted from a full-width glowing hero button — AI is an optional
+   enhancement, not something Smart Sort depends on, so it shouldn't look
+   like the star feature. Smart Sort already calls this silently when a key
+   is set; this button is just for a full manual re-pass. */
+.btn-ai-subtle {
+  background: var(--systemGrey5);
+  color: var(--label);
+  border: 1px solid var(--border);
+}
+.btn-ai-subtle .ai-spark {
+  background: var(--gradient-ai);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 800;
+}
+.btn-ai-subtle:hover:not(:disabled) { filter: brightness(0.97); }
+@media (prefers-color-scheme: dark) {
+  .btn-ai-subtle:hover:not(:disabled) { filter: brightness(1.15); }
+}
+
+.btn-ai {
+  background: var(--gradient-ai);
+  background-size: 200% 200%;
+  color: var(--accent-ink);
+  box-shadow: 0 4px 16px rgba(248, 182, 217, 0.45);
+  animation: aiGlow 5s ease-in-out infinite;
+}
+.btn-ai:hover:not(:disabled) { filter: brightness(1.04); }
+@keyframes aiGlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.btn-icon-small {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--tertiaryLabel);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s var(--spring);
+}
+.btn-icon-small:hover { background: var(--systemGrey5); color: var(--label); transform: rotate(90deg); }
+
+.groups-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.group-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--systemGrey6);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  animation: riseIn 0.3s var(--ease-out) both;
+  transition: transform 0.15s var(--ease-out), border-color 0.15s ease;
+}
+.group-item:hover { transform: translateX(2px); border-color: var(--separator); }
+
+/* Category badges = mini tag-chips, same visual family as onboarding chips */
+.group-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  margin-right: 9px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.group-badge-blue    { background: var(--chip-blue-bg);   color: var(--chip-blue-ink); }
+.group-badge-purple  { background: var(--chip-purple-bg); color: var(--chip-purple-ink); }
+.group-badge-pink    { background: var(--chip-pink-bg);   color: var(--chip-pink-ink); }
+.group-badge-yellow  { background: var(--chip-yellow-bg); color: var(--chip-yellow-ink); }
+.group-badge-cyan    { background: var(--chip-cyan-bg);   color: var(--chip-cyan-ink); }
+.group-badge-green   { background: var(--chip-green-bg);  color: var(--chip-green-ink); }
+.group-badge-orange  { background: var(--chip-orange-bg); color: var(--chip-orange-ink); }
+.group-badge-red     { background: var(--chip-red-bg);    color: var(--chip-red-ink); }
+.group-badge-grey    { background: var(--chip-grey-bg);   color: var(--chip-grey-ink); }
+
+.group-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--label);
+}
+
+.group-count {
+  font-size: 11.5px;
+  color: var(--tertiaryLabel);
+  margin-left: 6px;
+  font-weight: 600;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  color: var(--label);
+}
+
+.empty-state {
+  font-size: 12.5px;
+  color: var(--tertiaryLabel);
+  text-align: center;
+  padding: 14px 0;
+}
+
+.status-banner {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  display: none;
+  transform: translate3d(0, -4px, 0);
+  opacity: 0;
+  transition: transform 0.25s var(--spring), opacity 0.2s ease;
+}
+.status-banner.show { display: block; transform: translate3d(0, 0, 0); opacity: 1; }
+.status-banner.info  { background: var(--chip-blue-bg); color: var(--chip-blue-ink); }
+.status-banner.error { background: var(--chip-red-bg);  color: var(--chip-red-ink); }
+.status-banner.ok    { background: var(--chip-green-bg); color: var(--chip-green-ink); }
+
+.switch-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 42px;
+  height: 25px;
+  border-radius: 13px;
+  background: var(--systemGrey5);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.25s var(--spring);
+  border: none;
+  flex-shrink: 0;
+}
+.switch-input::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s var(--spring);
+}
+.switch-input:checked { background: var(--accent-yellow); }
+.switch-input:checked::before { transform: translateX(17px); }
+
+.text-input, .select-input {
+  height: 38px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--systemGrey6);
+  color: var(--label);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.text-input:focus, .select-input:focus {
+  outline: none;
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 0 3px rgba(247, 201, 72, 0.3);
+}
+
+/* ================= Onboarding wizard ================= */
+
+.wizard-progress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.wizard-dot {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--systemGrey5);
+  overflow: hidden;
+}
+.wizard-dot::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent-yellow);
+  border-radius: 2px;
+  transition: width 0.4s var(--ease-out);
+}
+.wizard-dot.done::after,
+.wizard-dot.active::after { width: 100%; }
+
+.wizard-step { display: none; }
+.wizard-step.active {
+  display: block;
+  animation: riseIn 0.35s var(--ease-out) both;
+}
+
+.wizard-step-title {
+  font-size: 17px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+.wizard-step-subtitle {
+  font-size: 12px;
+  color: var(--secondaryLabel);
+  margin-bottom: 14px;
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.chip-option {
+  border: 1.5px solid var(--border);
+  background: var(--systemGrey6);
+  color: var(--label);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 9px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: transform 0.15s var(--spring), background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip-option:hover { transform: translateY(-1px); }
+.chip-option:active { transform: scale(0.96); }
+
+.chip-option .chip-check {
+  display: inline-block;
+  width: 0;
+  opacity: 0;
+  transition: width 0.2s var(--ease-out), opacity 0.2s ease;
+  overflow: hidden;
+}
+
+.chip-option.selected {
+  border-color: transparent;
+  box-shadow: 0 3px 10px rgba(23, 21, 15, 0.12);
   transform: translateY(-1px);
 }
-
-.status {
-  text-align: center;
-  margin-top: 12px;
-  padding-bottom: 4px;
+.chip-option.selected .chip-check {
+  width: 14px;
+  opacity: 1;
 }
 
-.settings-link {
-  color: var(--text-muted);
-  text-decoration: none;
+/* Each chip cycles through the pastel palette when selected, same family
+   as the group badges — so onboarding visually previews the categories. */
+.chip-option[data-swatch="blue"].selected   { background: var(--chip-blue-bg);   color: var(--chip-blue-ink); }
+.chip-option[data-swatch="green"].selected  { background: var(--chip-green-bg);  color: var(--chip-green-ink); }
+.chip-option[data-swatch="pink"].selected   { background: var(--chip-pink-bg);   color: var(--chip-pink-ink); }
+.chip-option[data-swatch="yellow"].selected { background: var(--chip-yellow-bg); color: var(--chip-yellow-ink); }
+.chip-option[data-swatch="purple"].selected { background: var(--chip-purple-bg); color: var(--chip-purple-ink); }
+.chip-option[data-swatch="orange"].selected { background: var(--chip-orange-bg); color: var(--chip-orange-ink); }
+.chip-option[data-swatch="cyan"].selected   { background: var(--chip-cyan-bg);   color: var(--chip-cyan-ink); }
+.chip-option[data-swatch="red"].selected    { background: var(--chip-red-bg);    color: var(--chip-red-ink); }
+
+.wizard-nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+.wizard-nav .btn { flex: 1; }
+.wizard-hint {
   font-size: 11px;
-  font-weight: 500;
-  transition: color 0.2s ease;
+  color: var(--tertiaryLabel);
+  margin-top: 8px;
 }
 
-.settings-link:hover {
-  color: var(--text-main);
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+.section-note {
+  font-size: 11px;
+  color: var(--tertiaryLabel);
+  margin-top: 2px;
+  line-height: 1.4;
 }
+
+/* ================= Splash screen (first-run only) ================= */
+
+.splash-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 320px;
+  gap: 14px;
+  animation: splashFadeOut 0.4s var(--ease-out) 1.5s both;
+}
+
+@keyframes splashFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; visibility: hidden; }
+}
+
+.splash-screen svg {
+  width: 84px;
+  height: 110px;
+  overflow: visible;
+}
+
+.splash-s-path {
+  fill: none;
+  stroke: url(#splashGradient);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  animation: drawS 1.1s var(--ease-out) forwards;
+}
+
+@keyframes drawS {
+  to { stroke-dashoffset: 0; }
+}
+
+.splash-wordmark {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--secondaryLabel);
+  opacity: 0;
+  animation: splashTextIn 0.4s var(--ease-out) 0.9s forwards;
+}
+
+@keyframes splashTextIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-screen { display: none; }
+}
+
+/* ================= Settings screen ================= */
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.back-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--systemGrey5);
+  color: var(--label);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  flex-shrink: 0;
+  transition: transform 0.15s var(--spring), background 0.15s ease;
+}
+.back-btn:hover { background: var(--systemGrey6); }
+.back-btn:active { transform: scale(0.88); }
+
+.settings-title {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+/* Clean grouped list row, closer to how Trust Wallet / Exodus lay out a
+   settings screen: one clear label per row, control flush right, generous
+   vertical rhythm instead of a cramped multi-column form. */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+}
+.settings-row + .settings-row { border-top: 1px solid var(--separator); }
+
+.settings-row-label { font-size: 13.5px; font-weight: 600; color: var(--label); }
+.settings-row-sub { font-size: 11px; color: var(--tertiaryLabel); margin-top: 1px; }
+
+/* Custom rules as stacked cards instead of a cramped fixed-width grid —
+   this is what was overflowing before; a single column can never overflow. */
+.rule-card {
+  background: var(--systemGrey6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.rule-card-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.rule-card-row:last-child { margin-bottom: 0; }
+.rule-card .text-input, .rule-card .select-input { width: 100%; }
+.rule-card-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+.rule-remove-text {
+  background: transparent;
+  border: none;
+  color: var(--tertiaryLabel);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.rule-remove-text:hover { color: var(--chip-red-ink); }

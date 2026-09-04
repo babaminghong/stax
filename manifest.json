@@ -1,16 +1,24 @@
 {
   "manifest_version": 3,
   "name": "Stax — Tab Engine",
-  "version": "1.2.0",
-  "description": "Smart tab organization powered by regex rules and optional AI.",
+  "version": "1.3.0",
+  "description": "Smart tab organization powered by local rules and optional AI.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": [
     "tabs",
     "tabGroups",
-    "storage"
-    "sidePanel",
-    "offscreen"
+    "storage",
+    "sidePanel"
   ],
-  "options_page": "options.html",
+  "host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   },

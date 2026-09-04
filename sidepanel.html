@@ -6,8 +6,6 @@
   <style>
     body { width: 100% !important; min-height: 100vh; }
     .sidepanel-container { padding: 20px; }
-    .workspace-chip { display: inline-block; padding: 6px 12px; background: var(--secondary); border-radius: 8px; font-size: 12px; margin-right: 6px; cursor: pointer; }
-    .workspace-chip.active { background: var(--primary); color: #fff; }
   </style>
 </head>
 <body>
@@ -15,30 +13,25 @@
     <div class="header">
       <div>
         <div class="title">Stax Sidebar ⚡</div>
-        <div class="subtitle">Workspace & Live Navigator</div>
+        <div class="subtitle">Live Tab Group Navigator</div>
       </div>
       <span class="badge">SidePanel</span>
     </div>
 
-    <!-- Active Workspace Selector -->
-    <div class="card">
-      <div class="label">Workspaces</div>
-      <div id="workspaceList">
-        <span class="workspace-chip active">Default</span>
-        <span class="workspace-chip">+ New</span>
-      </div>
-    </div>
+    <div id="statusBanner" class="status-banner"></div>
 
     <!-- Live Controls -->
     <div class="card space-y">
-      <button id="spQuickSort" class="btn btn-primary btn-block">⚡ Organize Window</button>
-      <button id="spSnooze" class="btn btn-secondary btn-block">💤 Snooze Idle Tabs (RAM Saver)</button>
+      <div class="grid-2">
+        <button id="spQuickSort" class="btn btn-primary">⚡ Organize Window</button>
+        <button id="spUngroupAll" class="btn btn-secondary">Ungroup All</button>
+      </div>
     </div>
 
     <!-- Group Tree View Container -->
     <div class="card" id="groupTreeContainer">
       <div class="label">Active Groups</div>
-      <div id="treeView" style="font-size: 13px; color: var(--subtext); margin-top: 8px;">
+      <div id="treeView" class="groups-container" style="margin-top: 8px;">
         Loading active tab groups...
       </div>
     </div>

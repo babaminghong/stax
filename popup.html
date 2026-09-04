@@ -6,69 +6,195 @@
 </head>
 <body>
   <div class="popup-container">
-    <!-- Onboarding View -->
-    <div id="onboardingScreen" class="card" style="display: none;">
-      <div class="brand">
-        <div class="title">Welcome to Stax ⚡</div>
-        <div class="subtitle">Quick setup saved to this browser</div>
-      </div>
-      
-      <div class="form-group">
-        <label class="label">Language / Sprache</label>
-        <select id="initLang" class="select-input">
-          <option value="en">English</option>
-          <option value="de">Deutsch</option>
-        </select>
-      </div>
 
-      <div class="form-group">
-        <label class="label">I am a / Ich bin</label>
-        <select id="initRole" class="select-input">
-          <option value="Developer">Developer / Entwickler</option>
-          <option value="Student">Student / Schüler</option>
-          <option value="PowerUser">Power User</option>
-          <option value="Other">Other / Sonstiges</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="label">How did you find Stax?</label>
-        <select id="initSource" class="select-input">
-          <option value="HackClub">Hack Club</option>
-          <option value="GitHub">GitHub</option>
-          <option value="Friend">Friend / Freund</option>
-          <option value="Store">Web Store</option>
-        </select>
-      </div>
-
-      <button id="saveOnboarding" class="btn btn-primary btn-block">Start Using Stax</button>
+    <!-- First-run splash: plays once, before onboarding, then removes itself -->
+    <div id="splashScreen" class="splash-screen" style="display: none;">
+      <svg viewBox="0 0 100 140" aria-hidden="true">
+        <defs>
+          <linearGradient id="splashGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#f7c948" />
+            <stop offset="55%" stop-color="#f8b6d9" />
+            <stop offset="100%" stop-color="#7c5cff" />
+          </linearGradient>
+        </defs>
+        <path class="splash-s-path" d="M75,28 C75,12 25,12 25,38 C25,60 72,58 72,82 C72,108 22,110 20,90" />
+      </svg>
+      <div class="splash-wordmark">STAX</div>
     </div>
 
-    <!-- Main Extension View -->
+    <!-- Onboarding Wizard -->
+    <div id="onboardingScreen" class="screen-flush" style="display: none;">
+      <div class="title" style="margin-bottom: 2px;">Welcome to Stax</div>
+      <div class="subtitle" style="margin-bottom: 14px;">A few quick questions to set things up</div>
+
+      <div class="wizard-progress" id="wizardProgress">
+        <div class="wizard-dot" data-step="0"></div>
+        <div class="wizard-dot" data-step="1"></div>
+        <div class="wizard-dot" data-step="2"></div>
+        <div class="wizard-dot" data-step="3"></div>
+      </div>
+
+      <!-- Step 1: Role (single-select) -->
+      <div class="wizard-step" data-step="0">
+        <div class="wizard-step-title">What's your role?</div>
+        <div class="wizard-step-subtitle">Helps us tune default categories</div>
+        <div class="chip-grid" data-question="role" data-mode="single">
+          <button class="chip-option" data-value="Developer" data-swatch="blue">💻 Developer <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Student" data-swatch="green">🎓 Student <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="PowerUser" data-swatch="purple">⚡ Power User <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Other" data-swatch="grey">✨ Other <span class="chip-check">✓</span></button>
+        </div>
+      </div>
+
+      <!-- Step 2: Tab habits (single-select) -->
+      <div class="wizard-step" data-step="1">
+        <div class="wizard-step-title">How cluttered does it get?</div>
+        <div class="wizard-step-subtitle">Your typical open tab count</div>
+        <div class="chip-grid" data-question="tabHabit" data-mode="single">
+          <button class="chip-option" data-value="under10" data-swatch="green">Under 10 <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="10-30" data-swatch="cyan">10 – 30 <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="30-60" data-swatch="orange">30 – 60 <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="60plus" data-swatch="pink">60+ 😅 <span class="chip-check">✓</span></button>
+        </div>
+      </div>
+
+      <!-- Step 3: Use cases (multi-select) -->
+      <div class="wizard-step" data-step="2">
+        <div class="wizard-step-title">What do you use tabs for?</div>
+        <div class="wizard-step-subtitle">Select all that apply</div>
+        <div class="chip-grid" data-question="useCases" data-mode="multi">
+          <button class="chip-option" data-value="Development" data-swatch="blue">Development <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Research" data-swatch="cyan">Research <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Shopping" data-swatch="orange">Shopping <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Communication" data-swatch="green">Communication <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Entertainment" data-swatch="pink">Entertainment <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Productivity" data-swatch="yellow">Productivity <span class="chip-check">✓</span></button>
+        </div>
+      </div>
+
+      <!-- Step 4: AI interest (single-select) -->
+      <div class="wizard-step" data-step="3">
+        <div class="wizard-step-title">Interested in AI-powered sorting?</div>
+        <div class="wizard-step-subtitle">Uses your own Anthropic or Gemini key</div>
+        <div class="chip-grid" data-question="aiInterest" data-mode="single">
+          <button class="chip-option" data-value="yes" data-swatch="pink">✨ Yes, set it up now <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="later" data-swatch="yellow">Maybe later <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="no" data-swatch="grey">No thanks <span class="chip-check">✓</span></button>
+        </div>
+      </div>
+
+      <div class="wizard-nav">
+        <button id="wizardBack" class="btn btn-secondary" style="display: none;">Back</button>
+        <button id="wizardNext" class="btn btn-primary" disabled>Continue</button>
+      </div>
+      <div class="wizard-hint" id="wizardHint"></div>
+    </div>
+
+    <!-- Main Dashboard View -->
     <div id="mainScreen" style="display: none;">
       <div class="header">
         <div>
           <div class="title">Stax</div>
-          <div class="subtitle" id="subTitleText">Smart Tab Engine</div>
+          <div class="subtitle" id="subTitleText">Automatic tab clutter management</div>
         </div>
-        <span class="badge">V3 Pro</span>
+        <div class="header-actions">
+          <span class="version-badge" id="versionBadge">v1.3</span>
+          <button id="openSettings" class="icon-btn" title="Settings">⚙️</button>
+        </div>
       </div>
 
+      <div id="statusBanner" class="status-banner"></div>
+
+      <!-- Quick Action Controls -->
       <div class="card space-y">
-        <button id="quickSort" class="btn btn-primary btn-block">⚡ Quick Sort (Local)</button>
-        <button id="dedupe" class="btn btn-secondary btn-block">🧹 Close Duplicates</button>
+        <div class="label">Quick Actions</div>
+        <div class="grid-2">
+          <button id="quickSort" class="btn btn-primary">Smart Sort</button>
+          <button id="ungroupAll" class="btn btn-secondary">Ungroup All</button>
+        </div>
+        <div class="grid-2">
+          <button id="dedupe" class="btn btn-secondary">Close Duplicates</button>
+          <button id="createGroupBtn" class="btn btn-secondary">+ New Group</button>
+        </div>
+        <div class="section-note">Smart Sort runs entirely on local rules — it only calls AI on anything left over, and only if you've set a key.</div>
+        <button id="aiSort" class="btn btn-ai-subtle btn-block" style="margin-top: 4px;"><span class="ai-spark">✨</span>&nbsp;Re-sort everything with AI (optional)</button>
+      </div>
+
+      <!-- Live Group Manager -->
+      <div class="card">
+        <div class="label">Active Tab Groups</div>
+        <div id="activeGroupsList" class="groups-container">
+          <div class="empty-state">No active groups in this window</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings — lives entirely inside the popup, no separate window/tab -->
+    <div id="settingsScreen" class="screen-flush" style="display: none;">
+      <div class="settings-header">
+        <button id="settingsBack" class="back-btn" title="Back">←</button>
+        <div class="settings-title">Settings</div>
       </div>
 
       <div class="card">
-        <button id="openTestTabs" class="btn btn-secondary btn-block">🚀 Open Test Tab Set</button>
+        <div class="label">Preferences</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Auto-sort on new tab</div>
+            <div class="settings-row-sub">Local rules only, runs a moment after a tab loads</div>
+          </div>
+          <input type="checkbox" id="autoSortToggle" class="switch-input" />
+        </div>
+        <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+          <span class="settings-row-label">Appearance</span>
+          <div class="button-toggle" id="themeToggle">
+            <button class="toggle-btn active" data-value="auto">Auto</button>
+            <button class="toggle-btn" data-value="light">Light</button>
+            <button class="toggle-btn" data-value="dark">Dark</button>
+          </div>
+        </div>
       </div>
 
-      <div class="status">
-        <a href="options.html" target="_blank" id="settingsLink" class="settings-link">⚙️ API Key & Settings</a>
+      <div class="card">
+        <div class="label">Custom Domain Rules</div>
+        <div class="section-note" style="margin-bottom: 10px;">Checked before built-in categories. Comma-separated domains per rule.</div>
+        <div id="rulesList"></div>
+        <button id="addRule" class="btn btn-secondary btn-block" style="margin-top: 4px;">+ Add Custom Rule</button>
       </div>
+
+      <div class="card">
+        <div class="label">AI Context Grouping</div>
+
+        <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 6px; border-top: none; padding-top: 0;">
+          <span class="settings-row-label">Provider</span>
+          <select id="provider" class="select-input" style="width: 100%;">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="gemini">Google (Gemini)</option>
+          </select>
+        </div>
+
+        <div id="anthropicFields" style="margin-top: 10px;">
+          <span class="settings-row-label">Anthropic API Key</span>
+          <input type="password" id="key" class="text-input" style="width: 100%; margin-top: 6px;" placeholder="sk-ant-…" />
+        </div>
+
+        <div id="geminiFields" style="display: none; margin-top: 10px;">
+          <span class="settings-row-label">Gemini API Key</span>
+          <input type="password" id="geminiKey" class="text-input" style="width: 100%; margin-top: 6px; margin-bottom: 10px;" placeholder="AIza…" />
+          <span class="settings-row-label">Gemini Model</span>
+          <input type="text" id="geminiModel" class="text-input" style="width: 100%; margin-top: 6px;" placeholder="gemini-flash-latest" />
+        </div>
+
+        <div class="section-note" style="margin-top: 10px;">Stored locally on this device only — never synced or sent anywhere except directly to the provider you choose.</div>
+
+        <button id="clearKeys" class="btn btn-secondary btn-block" style="margin-top: 12px;">Clear Saved Keys</button>
+      </div>
+
+      <button id="saveSettings" class="btn btn-primary btn-block">Save Settings</button>
+      <div id="settingsMsg" class="wizard-hint" style="text-align: center;"></div>
     </div>
-  </div>
 
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>
