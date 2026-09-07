@@ -1,31 +1,6 @@
-const CATEGORY_GLYPHS = {
-  "AI & ML": "✨",
-  "Development": "</>",
-  "Social & Media": "◎",
-  "Productivity": "▤",
-  "Communication": "◐",
-  "Finance & Pay": "$",
-  "Shopping": "▧",
-  "Entertainment": "▶"
-};
-
-function glyphFor(name) {
-  return CATEGORY_GLYPHS[name] || (name || "?").slice(0, 2).toUpperCase();
-}
-
-// Keep the side panel's theme in sync with whatever was chosen in the
-// popup's Preferences card — same stored value, same attribute mechanism.
-(async function applyThemeEarly() {
-  const { theme = "auto" } = await chrome.storage.sync.get(["theme"]);
-  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", theme);
-})();
-
-function sendMessage(msg) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(msg, (res) => resolve(res));
-  });
-}
+// CATEGORY_GLYPHS, glyphFor, sendMessage, escapeHtml, and the early theme
+// application (kept in sync with whatever was chosen in the popup's
+// Preferences card) all live in shared.js now — sidepanel.html loads it first.
 
 function showStatus(text, kind = "info") {
   const banner = document.getElementById("statusBanner");
@@ -34,12 +9,6 @@ function showStatus(text, kind = "info") {
   banner.className = `status-banner show ${kind}`;
   clearTimeout(showStatus._t);
   showStatus._t = setTimeout(() => banner.classList.remove("show"), 4000);
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 async function getActiveWindowId() {

@@ -103,29 +103,88 @@ const BUILTIN_CATEGORY_RULES = [
   }
 ];
 
-// Lightweight, fully-local keyword classifier — the second line of defense
-// before a domain falls into the generic grey bucket. Multilingual on
-// purpose (kaufen/boutique = shop, nachrichten/aktuell = news, etc.) so
-// unlisted foreign-language sites still land somewhere sensible without
-// ever calling out to AI.
-const KEYWORD_RULES = [
-  { name: "Shopping", color: "orange", keywords: ["shop", "store", "kaufen", "shopping", "boutique", "market", "deals", "outlet"] },
-  { name: "News & Reading", color: "cyan", keywords: ["news", "nachrichten", "aktuell", "zeitung", "journal", "presse", "actualite", "noticias"] },
-  { name: "Finance & Pay", color: "green", keywords: ["bank", "banque", "banca", "finance", "geld", "payment", "invest"] },
-  { name: "Travel", color: "purple", keywords: ["travel", "flight", "flug", "hotel", "reise", "voyage", "airlines"] },
-  { name: "Development", color: "blue", keywords: ["docs", "dev", "api", "sdk", "github"] }
+// Local pattern classifier — the second line of defense before a domain
+// falls into the generic grey bucket. Instead of maintaining an ever-growing
+// list of exact domains, this matches structural signals that hold across
+// sites nobody's ever added by name: the TLD a business registered under,
+// words in the hostname itself, the URL path shape (a checkout flow looks
+// like a checkout flow on any storefront), and the tab title. Checked in
+// that order, strongest signal first, so a weak title match never
+// pre-empts a strong domain-suffix match from a later rule.
+//
+// Deliberately NOT using cookies or request-trace data for this. Reading
+// cookies would need the "cookies" permission plus broad host_permissions
+// (effectively <all_urls>), which (a) is real user data leaving the "stored
+// locally, works on tab metadata only" model the rest of Stax follows, and
+// (b) doesn't even give a better signal — a cookie tells you a site sets
+// trackers, not what category it is. URL/title patterns cover the same
+// ground without touching page content or expanding what Stax can see.
+const PATTERN_RULES = [
+  {
+    name: "Shopping",
+    color: "orange",
+    hostSuffixes: [".shop", ".store"],
+    hostKeywords: ["shop", "store", "kaufen", "shopping", "boutique", "market", "deals", "outlet"],
+    pathPatterns: [/^\/(cart|checkout|basket|panier|warenkorb|carrito|carrello)(\/|$)/i],
+    titlePatterns: [/\b(shopping cart|add to cart|warenkorb|panier|zum warenkorb)\b/i]
+  },
+  {
+    name: "Finance & Pay",
+    color: "green",
+    hostSuffixes: [".bank"],
+    hostKeywords: ["bank", "banque", "banca", "finance", "geld", "payment", "invest"],
+    pathPatterns: [/^\/(invoice|rechnung|facture|statement|kontoauszug)(\/|$)/i],
+    titlePatterns: [/\b(invoice|rechnung|account balance|kontostand)\b/i]
+  },
+  {
+    name: "Travel",
+    color: "purple",
+    hostSuffixes: [".travel", ".flights"],
+    hostKeywords: ["travel", "flight", "flug", "hotel", "reise", "voyage", "airlines"],
+    pathPatterns: [/^\/(flight|flug|booking|reservation|itinerary)s?(\/|$)/i],
+    titlePatterns: [/\b(boarding pass|check-?in|flight status|booking confirm(ed|ation))\b/i]
+  },
+  {
+    name: "News & Reading",
+    color: "cyan",
+    hostSuffixes: [".news"],
+    hostKeywords: ["news", "nachrichten", "aktuell", "zeitung", "journal", "presse", "actualite", "noticias"],
+    pathPatterns: [/^\/(article|story|nachricht|breaking)s?(\/|$)/i],
+    titlePatterns: []
+  },
+  {
+    name: "Development",
+    color: "blue",
+    hostSuffixes: [".dev"],
+    hostKeywords: ["docs", "dev", "api", "sdk", "github"],
+    pathPatterns: [/^\/[^/]+\/[^/]+\/(pull|issues|commit|blob|tree|compare|releases)(\/|$)/i],
+    titlePatterns: [/\b(pull request|merge request|\d+ commits?|compare changes)\b/i]
+  }
 ];
 
-function keywordCategoryFor(host) {
-  // Token match, not substring match — "shop" used to match "photoshop.adobe.com"
-  // and "workshop.io" because .includes() matches anywhere in the string. Splitting
-  // the host into dot/hyphen-separated tokens and checking for an exact token match
-  // keeps the multilingual coverage without the false positives.
+function patternCategoryFor(host, pathname, title) {
   const tokens = host.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  for (const rule of KEYWORD_RULES) {
-    if (rule.keywords.some(kw => tokens.includes(kw))) {
-      return { name: rule.name, color: rule.color };
-    }
+  const path = (pathname || "").toLowerCase();
+  const titleLower = (title || "").toLowerCase();
+
+  // Tier 1: TLD/host suffix. Registering under .shop or .bank bakes the
+  // category into the domain itself — about as reliable as a signal gets.
+  for (const rule of PATTERN_RULES) {
+    if (rule.hostSuffixes.some(suf => host.endsWith(suf))) return { name: rule.name, color: rule.color };
+  }
+  // Tier 2: hostname token match (the old keyword behavior, unchanged).
+  for (const rule of PATTERN_RULES) {
+    if (rule.hostKeywords.some(kw => tokens.includes(kw))) return { name: rule.name, color: rule.color };
+  }
+  // Tier 3: URL path shape — a checkout or PR-review URL looks the same
+  // structurally on almost any storefront or git host, listed or not.
+  for (const rule of PATTERN_RULES) {
+    if (rule.pathPatterns.some(p => p.test(path))) return { name: rule.name, color: rule.color };
+  }
+  // Tier 4: tab title. Weakest signal (titles are the noisiest source), so
+  // it only gets checked once nothing structural has matched at all.
+  for (const rule of PATTERN_RULES) {
+    if (rule.titlePatterns.some(p => p.test(titleLower))) return { name: rule.name, color: rule.color };
   }
   return null;
 }
@@ -151,15 +210,17 @@ async function getAllRules() {
   return [...normalizedCustom, ...BUILTIN_CATEGORY_RULES];
 }
 
-async function getCategoryForTab(url, rules) {
+async function getCategoryForTab(url, rules, title) {
   // chrome-extension:// and moz-extension:// weren't covered by the old regex
   // (it only matched "chrome:", not "chrome-extension:"), so extension pages
   // like the built-in PDF viewer could slip through and get dumped into a
   // grey group named after the extension ID.
   if (!url || /^(chrome|chrome-extension|brave|edge|edge-extension|moz-extension|about|file):/.test(url)) return null;
-  let host;
+  let host, pathname;
   try {
-    host = new URL(url).hostname;
+    const parsed = new URL(url);
+    host = parsed.hostname;
+    pathname = parsed.pathname;
   } catch (err) {
     console.warn("Stax: could not parse tab URL", url, err);
     return null;
@@ -175,9 +236,10 @@ async function getCategoryForTab(url, rules) {
     }
   }
 
-  // Second pass: multilingual keyword match, still 100% local/instant.
-  const keywordHit = keywordCategoryFor(host);
-  if (keywordHit) return keywordHit;
+  // Second pass: pattern match across TLD, hostname tokens, URL path shape,
+  // and tab title — still 100% local/instant, no page content is read.
+  const patternHit = patternCategoryFor(host, pathname, title);
+  if (patternHit) return patternHit;
 
   // Last resort: bucket by root domain name, but only if enough tabs share
   // it — handled by the caller (runLocalSort), which knows the full tab list.
@@ -212,7 +274,7 @@ async function runLocalSortCore(windowId) {
   const groupedTabIds = new Set();
 
   for (const tab of tabs) {
-    const cat = await getCategoryForTab(tab.url, rules);
+    const cat = await getCategoryForTab(tab.url, rules, tab.title);
     if (cat) {
       if (!groupsMap.has(cat.name)) {
         groupsMap.set(cat.name, { color: cat.color, tabIds: [], isFallback: !!cat.isFallback });

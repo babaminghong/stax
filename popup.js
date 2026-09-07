@@ -1,13 +1,5 @@
-const CATEGORY_GLYPHS = {
-  "AI & ML": "✨",
-  "Development": "</>",
-  "Social & Media": "◎",
-  "Productivity": "▤",
-  "Communication": "◐",
-  "Finance & Pay": "$",
-  "Shopping": "▧",
-  "Entertainment": "▶"
-};
+// CATEGORY_GLYPHS, glyphFor, sendMessage, escapeHtml, and the early theme
+// application all live in shared.js now — popup.html loads it first.
 
 function friendlyAiError(rawError) {
   const msg = rawError || "AI grouping failed.";
@@ -25,18 +17,6 @@ function friendlyAiError(rawError) {
   }
   return msg;
 }
-
-function glyphFor(name) {
-  return CATEGORY_GLYPHS[name] || (name || "?").slice(0, 2).toUpperCase();
-}
-
-// Applied as early as possible (before anything paints) to avoid a
-// light-then-dark flash when the saved theme differs from the OS setting.
-(async function applyThemeEarly() {
-  const { theme = "auto" } = await chrome.storage.sync.get(["theme"]);
-  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", theme);
-})();
 
 document.addEventListener("DOMContentLoaded", async () => {
   const versionBadge = document.getElementById("versionBadge");
@@ -179,12 +159,6 @@ async function withCurrentWindow(fn) {
   if (tab?.windowId != null) await fn(tab.windowId);
 }
 
-function sendMessage(msg) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(msg, (res) => resolve(res));
-  });
-}
-
 function showStatus(text, kind = "info") {
   const banner = document.getElementById("statusBanner");
   if (!banner) return;
@@ -319,12 +293,6 @@ async function loadActiveGroups() {
     });
     groupsList.appendChild(item);
   }
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 // ---- Settings screen (provider/keys/custom rules) — lives entirely in the
