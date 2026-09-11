@@ -1,6 +1,6 @@
 // CATEGORY_GLYPHS, glyphFor, sendMessage, escapeHtml, and the early theme
 // application (kept in sync with whatever was chosen in the popup's
-// Preferences card) all live in shared.js now — sidepanel.html loads it first.
+// Preferences card) all live in shared.js now, sidepanel.html loads it first.
 
 function showStatus(text, kind = "info") {
   const banner = document.getElementById("statusBanner");
@@ -127,7 +127,7 @@ document.getElementById("spQuickSort")?.addEventListener("click", async () => {
     const suffix = res.aiUsed ? " (AI covered the rest)" : "";
     showStatus(`Created ${res.groupsCreated} group(s)${suffix}.`, "ok");
   } else {
-    showStatus("Sort failed — try again.", "error");
+    showStatus("Sort failed, try again.", "error");
   }
   loadTree();
 });

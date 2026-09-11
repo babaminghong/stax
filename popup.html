@@ -7,19 +7,18 @@
 <body>
   <div class="popup-container">
 
-    <!-- First-run splash: plays once, before onboarding, then removes itself -->
+    <!-- First-run splash: loose tabs fly in and stack up, the animation is
+         literally what the extension does. Plays once, then onboarding. -->
     <div id="splashScreen" class="splash-screen" style="display: none;">
-      <svg viewBox="0 0 100 140" aria-hidden="true">
-        <defs>
-          <linearGradient id="splashGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#f7c948" />
-            <stop offset="55%" stop-color="#f8b6d9" />
-            <stop offset="100%" stop-color="#7c5cff" />
-          </linearGradient>
-        </defs>
-        <path class="splash-s-path" d="M75,28 C75,12 25,12 25,38 C25,60 72,58 72,82 C72,108 22,110 20,90" />
-      </svg>
+      <div class="splash-stack" aria-hidden="true">
+        <div class="splash-tab"></div>
+        <div class="splash-tab"></div>
+        <div class="splash-tab"></div>
+        <div class="splash-tab"></div>
+        <div class="splash-tab"></div>
+      </div>
       <div class="splash-wordmark">STAX</div>
+      <div class="splash-tagline">tab chaos, stacked</div>
     </div>
 
     <!-- Onboarding Wizard -->
@@ -32,6 +31,8 @@
         <div class="wizard-dot" data-step="1"></div>
         <div class="wizard-dot" data-step="2"></div>
         <div class="wizard-dot" data-step="3"></div>
+        <div class="wizard-dot" data-step="4"></div>
+        <div class="wizard-dot" data-step="5"></div>
       </div>
 
       <!-- Step 1: Role (single-select) -->
@@ -83,6 +84,23 @@
         </div>
       </div>
 
+      <!-- Step 5: Accent colour -->
+      <div class="wizard-step" data-step="4">
+        <div class="wizard-step-title">Pick a colour</div>
+        <div class="wizard-step-subtitle">You can change this any time in Settings</div>
+        <div class="chip-grid" data-question="accent" data-mode="single" id="wizardAccentGrid"></div>
+      </div>
+
+      <!-- Step 6: Tutorial offer -->
+      <div class="wizard-step" data-step="5">
+        <div class="wizard-step-title">Want the quick tour?</div>
+        <div class="wizard-step-subtitle">Stacklet walks you through what each button does. Takes about a minute.</div>
+        <div class="chip-grid" data-question="wantsTutorial" data-mode="single">
+          <button class="chip-option" data-value="yes" data-swatch="green">Yes, show me around <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="no" data-swatch="grey">Skip, I'll explore <span class="chip-check">✓</span></button>
+        </div>
+      </div>
+
       <div class="wizard-nav">
         <button id="wizardBack" class="btn btn-secondary" style="display: none;">Back</button>
         <button id="wizardNext" class="btn btn-primary" disabled>Continue</button>
@@ -93,15 +111,25 @@
     <!-- Main Dashboard View -->
     <div id="mainScreen" style="display: none;">
       <div class="header">
-        <div>
-          <div class="title">Stax</div>
-          <div class="subtitle" id="subTitleText">Automatic tab clutter management</div>
+        <div class="brand">
+          <div class="brand-mark" id="brandMark">
+            <div class="brand-mark-stack"><i></i><i></i><i></i></div>
+            <div class="stacklet perched idle" id="perchedStacklet" title="That's Stacklet. Give him a poke."></div>
+          </div>
+          <div style="min-width: 0;">
+            <div class="title">Stax</div>
+            <div class="subtitle" id="subTitleText">Automatic tab clutter management</div>
+          </div>
         </div>
         <div class="header-actions">
-          <span class="version-badge" id="versionBadge">v1.3</span>
-          <button id="openPalette" class="icon-btn" title="Quick switch (jump to a tab)">🔎</button>
           <button id="openSettings" class="icon-btn" title="Settings">⚙️</button>
         </div>
+      </div>
+
+      <div class="nav-tabs" id="navTabs">
+        <button class="nav-tab active" data-view="dashboard"><span class="nav-tab-glyph">▤</span>Tabs</button>
+        <button class="nav-tab" data-view="stacklet"><span class="nav-tab-glyph">◕</span>Stacklet</button>
+        <button class="nav-tab" data-view="search"><span class="nav-tab-glyph">⌕</span>Find</button>
       </div>
 
       <div id="statusBanner" class="status-banner"></div>
@@ -110,6 +138,7 @@
         <button id="undoBtn" class="undo-link">Undo</button>
       </div>
 
+      <div id="dashboardView">
       <!-- Quick Action Controls -->
       <div class="card space-y">
         <div class="label">Quick Actions</div>
@@ -125,7 +154,7 @@
           <button id="suspendInactive" class="btn btn-secondary" title="Discards tabs untouched for 20+ minutes to free up RAM">Suspend Inactive</button>
           <button id="saveSessionBtn" class="btn btn-secondary">Save Session</button>
         </div>
-        <div class="section-note">Smart Sort runs entirely on local rules — it only calls AI on anything left over, and only if you've set a key.</div>
+        <div class="section-note">Smart Sort runs entirely on local rules. It only calls AI on whatever is left over, and only if you've set a key.</div>
         <button id="aiSort" class="btn btn-ai-subtle btn-block" style="margin-top: 4px;"><span class="ai-spark">✨</span>&nbsp;Re-sort everything with AI (optional)</button>
       </div>
 
@@ -140,7 +169,7 @@
       <!-- Saved Sessions -->
       <div class="card">
         <div class="label">Saved Sessions</div>
-        <div class="section-note" style="margin-bottom: 8px;">Snapshot your current tabs and groups, close them, and reopen the whole set later — even after restarting the browser.</div>
+        <div class="section-note" style="margin-bottom: 8px;">Snapshot your current tabs and groups, close them, and reopen the whole set later, even after restarting the browser.</div>
         <div id="sessionSaveRow" style="display: none; gap: 8px; margin-bottom: 10px;">
           <input type="text" id="sessionNameInput" class="text-input" style="flex: 1;" placeholder="Session name (e.g. Client Project A)" maxlength="60" />
           <button id="sessionSaveConfirm" class="btn btn-primary" style="flex-shrink: 0;">Save</button>
@@ -149,24 +178,65 @@
           <div class="empty-state">No saved sessions yet</div>
         </div>
       </div>
-    </div>
+      </div><!-- /dashboardView -->
 
-    <!-- Quick Switch — fuzzy-search open tabs, or fall back to AI for a
-         natural-language description if nothing matches locally -->
-    <div id="paletteScreen" class="screen-flush" style="display: none;">
-      <div class="settings-header">
-        <button id="paletteBack" class="back-btn" title="Back">←</button>
-        <div class="settings-title">Quick Switch</div>
+      <!-- Find: fuzzy search over open tabs, with an AI fallback for when you
+           can only describe the tab rather than name it -->
+      <div id="searchView" style="display: none;">
+        <input type="text" id="paletteInput" class="text-input" style="width: 100%; margin-bottom: 10px;" placeholder="Search open tabs, or describe one..." />
+        <div id="paletteResults" class="groups-container"></div>
+        <button id="paletteAiSearch" class="btn btn-ai-subtle btn-block" style="margin-top: 10px; display: none;">
+          <span class="ai-spark">✨</span>&nbsp;No match, ask AI to find it
+        </button>
+        <div id="paletteMsg" class="wizard-hint" style="text-align: center;"></div>
       </div>
-      <input type="text" id="paletteInput" class="text-input" style="width: 100%; margin-bottom: 10px;" placeholder="Search open tabs, or describe one…" />
-      <div id="paletteResults" class="groups-container"></div>
-      <button id="paletteAiSearch" class="btn btn-ai-subtle btn-block" style="margin-top: 10px; display: none;">
-        <span class="ai-spark">✨</span>&nbsp;No match — ask AI to find it
-      </button>
-      <div id="paletteMsg" class="wizard-hint" style="text-align: center;"></div>
+
+      <!-- Stacklet: reads tab titles and hostnames only, and proposes actions
+           it cannot run until you approve them (unless auto-run is on) -->
+      <div id="stackletView" style="display: none;">
+        <div class="chat-wrap">
+          <div id="chatLog" class="chat-log"></div>
+          <div class="stacklet-stage" id="stackletStage">
+            <div class="stacklet-bubble" id="stackletBubble"></div>
+            <div class="stacklet idle" id="stackletFigure"></div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 8px;">
+          <button id="stackletAnalyze" class="btn btn-secondary" style="font-size: 12px;">What am I working on?</button>
+          <button id="stackletTidy" class="btn btn-secondary" style="font-size: 12px;">Suggest a cleanup</button>
+        </div>
+
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" class="text-input" placeholder="Ask Stacklet about your tabs..." maxlength="400" />
+          <button id="chatSend" class="btn btn-primary" style="flex-shrink: 0;">Send</button>
+        </div>
+        <div id="stackletMsg" class="wizard-hint" style="text-align: center;"></div>
+      </div>
     </div>
 
-    <!-- Settings — lives entirely inside the popup, no separate window/tab -->
+    <!-- Tutorial overlay: spotlights real elements and types an explanation
+         next to each one. Skippable at any point. -->
+    <div id="tutorialOverlay" class="tutorial-overlay">
+      <div class="tutorial-spotlight" id="tutorialSpotlight"></div>
+      <div class="tutorial-card" id="tutorialCard">
+        <div class="tutorial-head">
+          <div class="stacklet idle" id="tutorialStacklet" style="width: 44px; height: 50px;"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div class="tutorial-step-count" id="tutorialCount">STEP 1</div>
+            <div class="tutorial-text" id="tutorialText"></div>
+          </div>
+        </div>
+        <div class="tutorial-nav">
+          <button class="tutorial-skip" id="tutorialSkip">Skip</button>
+          <button class="btn btn-secondary" id="tutorialBack">Back</button>
+          <button class="btn btn-primary" id="tutorialNext">Next</button>
+        </div>
+        <div class="tutorial-pips" id="tutorialPips"></div>
+      </div>
+    </div>
+
+    <!-- Settings, lives entirely inside the popup, no separate window/tab -->
     <div id="settingsScreen" class="screen-flush" style="display: none;">
       <div class="settings-header">
         <button id="settingsBack" class="back-btn" title="Back">←</button>
@@ -189,6 +259,39 @@
             <button class="toggle-btn" data-value="light">Light</button>
             <button class="toggle-btn" data-value="dark">Dark</button>
           </div>
+        </div>
+        <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
+          <span class="settings-row-label">Accent colour</span>
+          <div class="settings-row-sub">Applies across the popup, side panel, and Stacklet</div>
+          <div class="swatch-grid" id="accentGrid"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label">Stacklet</div>
+        <div class="section-note" style="margin-bottom: 10px;">Your companion reads tab titles and hostnames only. Never page content. It uses the same API key as AI grouping.</div>
+
+        <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 6px; border-top: none; padding-top: 0;">
+          <span class="settings-row-label">What do you mostly work on?</span>
+          <div class="settings-row-sub">Shapes the kind of help Stacklet offers</div>
+          <select id="stackletProfile" class="select-input" style="width: 100%; margin-top: 4px;">
+            <option value="developer">Development</option>
+            <option value="marketing">Marketing</option>
+            <option value="research">Research / Study</option>
+            <option value="design">Design</option>
+            <option value="general">A bit of everything</option>
+          </select>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Auto-run suggestions</div>
+            <div class="settings-row-sub">Stacklet runs what it suggests without asking first</div>
+          </div>
+          <input type="checkbox" id="autoRunToggle" class="switch-input" />
+        </div>
+        <div class="danger-note" id="autoRunNote" style="display: none;">
+          With this on, Stacklet groups, renames, suspends, and closes tabs without asking first. Closing is the risky one, Undo covers the last action for two minutes, but anything older is gone. Leave it off unless you've watched what it suggests for a while.
         </div>
       </div>
 
@@ -222,13 +325,15 @@
           <input type="text" id="geminiModel" class="text-input" style="width: 100%; margin-top: 6px;" placeholder="gemini-flash-latest" />
         </div>
 
-        <div class="section-note" style="margin-top: 10px;">Stored locally on this device only — never synced or sent anywhere except directly to the provider you choose.</div>
+        <div class="section-note" style="margin-top: 10px;">Stored locally on this device only, never synced or sent anywhere except directly to the provider you choose.</div>
 
         <button id="clearKeys" class="btn btn-secondary btn-block" style="margin-top: 12px;">Clear Saved Keys</button>
       </div>
 
       <button id="saveSettings" class="btn btn-primary btn-block">Save Settings</button>
       <div id="settingsMsg" class="wizard-hint" style="text-align: center;"></div>
+      <button id="replayTutorial" class="btn btn-secondary btn-block" style="margin-top: 10px;">Replay the tutorial</button>
+      <div class="section-note" style="text-align: center; margin-top: 12px;">Stax <span id="versionBadge">v1.3</span></div>
     </div>
 
   </div>

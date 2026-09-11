@@ -129,7 +129,7 @@ html, body {
 body {
   margin: 0;
   padding: 0;
-  width: 380px;
+  width: 400px;
   background-color: var(--systemBackground);
   color: var(--label);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -139,7 +139,7 @@ body {
   transition: background-color 0.25s ease;
 }
 
-.popup-container { position: relative; z-index: 1; padding: 16px; }
+.popup-container { position: relative; z-index: 1; padding: 18px 16px 16px; }
 
 /* Full-bleed screen wrapper for top-level views (onboarding, settings) —
    deliberately NOT a .card. No background/shadow of its own means it can
@@ -181,32 +181,109 @@ body {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
 }
+
+/* The logo mark doubles as Stacklet's perch. Giving it a real footprint
+   (rather than a text-only title) is what stopped the header reading as a
+   cramped strip of controls. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.brand-mark {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+.brand-mark-stack {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 40px;
+  height: 27px;
+}
+.brand-mark-stack i {
+  position: absolute;
+  left: 0;
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  transition: transform 0.3s var(--spring);
+}
+.brand-mark-stack i:nth-child(1) { bottom: 0;  width: 40px; background: var(--chip-purple-bg); }
+.brand-mark-stack i:nth-child(2) { bottom: 8px;  width: 33px; background: var(--chip-pink-bg); }
+.brand-mark-stack i:nth-child(3) { bottom: 16px; width: 26px; background: var(--accent-yellow); }
+.brand:hover .brand-mark-stack i:nth-child(2) { transform: translateX(4px); }
+.brand:hover .brand-mark-stack i:nth-child(3) { transform: translateX(8px); }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .icon-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: none;
-  background: var(--systemGrey5);
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--secondaryLabel);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   font-size: 14px;
-  transition: transform 0.2s var(--spring), background 0.15s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s var(--ease-out);
 }
-.icon-btn:hover { background: var(--systemGrey6); transform: rotate(25deg); }
-.icon-btn:active { transform: scale(0.88) rotate(25deg); }
+/* The old hover spun every icon 25deg, which looked fine on a gear and
+   ridiculous on everything else. A flat lift reads as deliberate. */
+.icon-btn:hover { background: var(--systemGrey5); border-color: var(--border); transform: translateY(-1px); }
+.icon-btn:active { transform: translateY(0) scale(0.94); }
+
+/* Segmented navigation. Three circular icons crammed beside the title was
+   the core of the cramped look; pulling the main destinations into a proper
+   segmented control gives each one a label and room to breathe. */
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--systemGrey6);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+.nav-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--secondaryLabel);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 8px 4px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.2s var(--ease-out), color 0.2s ease, transform 0.15s var(--ease-out);
+}
+.nav-tab:hover:not(.active) { color: var(--label); transform: translateY(-1px); }
+.nav-tab.active {
+  background: var(--card-bg-solid);
+  color: var(--label);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.nav-tab-glyph { font-size: 13px; line-height: 1; }
 
 .badge {
   background: var(--accent-yellow);
@@ -236,12 +313,13 @@ body {
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 14px;
-  margin-bottom: 12px;
+  border-radius: 16px;
+  padding: 15px;
+  margin-bottom: 11px;
   box-shadow: 0 1px 2px rgba(23, 21, 15, 0.04);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+.card:hover { border-color: var(--separator); }
 
 .label {
   font-size: 11px;
@@ -295,18 +373,26 @@ body {
   justify-content: center;
   gap: 6px;
   height: 40px;
+  padding: 0 14px;
   border: none;
-  border-radius: var(--radius-pill);
-  font-size: 13.5px;
+  border-radius: 12px;
+  font-size: 13px;
   font-weight: 700;
+  font-family: inherit;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: transform 0.18s var(--spring), box-shadow 0.2s ease, opacity 0.15s ease, filter 0.15s ease;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.22s ease, background 0.18s ease, opacity 0.15s ease;
   position: relative;
   overflow: hidden;
 }
 
-.btn:active { transform: scale(0.96); }
-.btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+/* Pills read as marketing buttons; a softer rounded rect reads as a tool.
+   Hover lifts rather than scales so adjacent buttons in a grid never
+   visually collide with each other mid-transition. */
+.btn:hover:not(:disabled) { transform: translateY(-1.5px); }
+.btn:active:not(:disabled) { transform: translateY(0) scale(0.975); transition-duration: 0.08s; }
+.btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+.btn:focus-visible { outline: 2px solid var(--accent-yellow); outline-offset: 2px; }
 
 .btn-block { width: 100%; }
 
@@ -327,13 +413,14 @@ body {
   color: var(--accent-ink);
   box-shadow: 0 4px 14px rgba(247, 201, 72, 0.45);
 }
-.btn-primary:hover:not(:disabled) { background: var(--accent-yellow-hover); box-shadow: 0 6px 18px rgba(247, 201, 72, 0.55); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-yellow-hover); }
 
 .btn-secondary {
   background: var(--systemGrey5);
   color: var(--label);
+  border: 1px solid var(--border);
 }
-.btn-secondary:hover:not(:disabled) { filter: brightness(0.97); }
+.btn-secondary:hover:not(:disabled) { background: var(--systemGrey6); border-color: var(--separator); }
 @media (prefers-color-scheme: dark) {
   .btn-secondary:hover:not(:disabled) { filter: brightness(1.15); }
 }
@@ -682,62 +769,6 @@ body {
   line-height: 1.4;
 }
 
-/* ================= Splash screen (first-run only) ================= */
-
-.splash-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 320px;
-  gap: 14px;
-  animation: splashFadeOut 0.4s var(--ease-out) 1.5s both;
-}
-
-@keyframes splashFadeOut {
-  from { opacity: 1; }
-  to   { opacity: 0; visibility: hidden; }
-}
-
-.splash-screen svg {
-  width: 84px;
-  height: 110px;
-  overflow: visible;
-}
-
-.splash-s-path {
-  fill: none;
-  stroke: url(#splashGradient);
-  stroke-width: 9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 260;
-  stroke-dashoffset: 260;
-  animation: drawS 1.1s var(--ease-out) forwards;
-}
-
-@keyframes drawS {
-  to { stroke-dashoffset: 0; }
-}
-
-.splash-wordmark {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--secondaryLabel);
-  opacity: 0;
-  animation: splashTextIn 0.4s var(--ease-out) 0.9s forwards;
-}
-
-@keyframes splashTextIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .splash-screen { display: none; }
-}
-
 /* ================= Settings screen ================= */
 
 .settings-header {
@@ -815,3 +846,621 @@ body {
   padding: 4px 6px;
 }
 .rule-remove-text:hover { color: var(--chip-red-ink); }
+/* ================= Accent themes ================= */
+/* Every accent preset just re-points the same four variables the rest of
+   the stylesheet already consumes (--accent-yellow / -hover / --accent-ink /
+   --gradient-ai), so adding a preset never means touching component CSS.
+   --accent-glow exists because .btn-primary's hover shadow used to hardcode
+   the yellow rgba directly, which looked wrong the moment the accent changed. */
+:root {
+  --accent-glow: rgba(247, 201, 72, 0.55);
+}
+
+:root[data-accent="orchid"] {
+  --accent-yellow: #c9a7f5; --accent-yellow-hover: #d8bdff; --accent-ink: #2b1b45;
+  --accent-glow: rgba(201, 167, 245, 0.55);
+  --gradient-ai: linear-gradient(135deg, #f8b6d9, #c9a7f5 55%, #a5c8ff);
+}
+:root[data-accent="mint"] {
+  --accent-yellow: #9ee0be; --accent-yellow-hover: #b6ecd0; --accent-ink: #12402c;
+  --accent-glow: rgba(158, 224, 190, 0.55);
+  --gradient-ai: linear-gradient(135deg, #b7e0c8, #9ee0be 55%, #d3f3f5);
+}
+:root[data-accent="ocean"] {
+  --accent-yellow: #8fc4f7; --accent-yellow-hover: #a9d4ff; --accent-ink: #10314f;
+  --accent-glow: rgba(143, 196, 247, 0.55);
+  --gradient-ai: linear-gradient(135deg, #a5c8ff, #8fc4f7 55%, #d3f3f5);
+}
+:root[data-accent="ember"] {
+  --accent-yellow: #f7a978; --accent-yellow-hover: #ffbf94; --accent-ink: #4a2413;
+  --accent-glow: rgba(247, 169, 120, 0.55);
+  --gradient-ai: linear-gradient(135deg, #fbdcdc, #f7a978 55%, #f7c948);
+}
+:root[data-accent="rose"] {
+  --accent-yellow: #f5a9c4; --accent-yellow-hover: #ffc0d5; --accent-ink: #4d1730;
+  --accent-glow: rgba(245, 169, 196, 0.55);
+  --gradient-ai: linear-gradient(135deg, #fbdce7, #f5a9c4 55%, #e6dcfb);
+}
+:root[data-accent="graphite"] {
+  --accent-yellow: #b9b5ab; --accent-yellow-hover: #cdc9bf; --accent-ink: #1f1d18;
+  --accent-glow: rgba(185, 181, 171, 0.5);
+  --gradient-ai: linear-gradient(135deg, #eceae3, #b9b5ab 55%, #d8d4c9);
+}
+:root[data-accent="aurora"] {
+  --accent-yellow: #a8e6cf; --accent-yellow-hover: #bdf0dc; --accent-ink: #123b33;
+  --accent-glow: rgba(168, 230, 207, 0.55);
+  --gradient-ai: linear-gradient(135deg, #c9a7f5, #a8e6cf 45%, #f7c948);
+}
+:root[data-accent="sunset"] {
+  --accent-yellow: #f7b199; --accent-yellow-hover: #ffc6b1; --accent-ink: #4a1f1f;
+  --accent-glow: rgba(247, 177, 153, 0.55);
+  --gradient-ai: linear-gradient(135deg, #f7c948, #f7b199 50%, #c9a7f5);
+}
+
+.btn-primary:hover:not(:disabled) { box-shadow: 0 6px 18px var(--accent-glow); }
+
+/* Swatch picker (Appearance settings) */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.swatch {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: transform 0.15s var(--spring), border-color 0.15s ease;
+}
+.swatch:hover { transform: scale(1.08); }
+.swatch.active { border-color: var(--label); }
+.swatch.active::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--accent-ink);
+}
+
+/* ================= Splash screen v2 ================= */
+/* The old splash drew a single generic "S" stroke. This one animates what
+   the extension actually does: loose tabs flying in and stacking into a
+   neat pile. Pure CSS so it can't block first paint on a slow worker. */
+/* Overlaid rather than in normal flow. While cross-fading, the splash and
+   the wizard are both visible for ~half a second; leaving the splash in
+   flow meant the wizard rendered *below* it and the whole popup grew, so
+   you saw a ghost splash stacked on top of the questions. Taking it out of
+   flow lets the wizard fade in underneath at its final position. */
+.splash-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--systemBackground);
+}
+
+.splash-stack {
+  position: relative;
+  width: 132px;
+  height: 96px;
+}
+
+.splash-tab {
+  position: absolute;
+  left: 50%;
+  width: 96px;
+  height: 15px;
+  border-radius: 5px;
+  margin-left: -48px;
+  opacity: 0;
+  transform-origin: center;
+  animation: tabFlyIn 0.62s var(--spring) both;
+}
+/* Each tab flies in from a different angle, then settles into the stack —
+   staggered so they land one after another rather than all at once. */
+.splash-tab:nth-child(1) { top: 66px; background: var(--chip-blue-bg);   --fx: -70px; --fy: 26px;  --fr: -22deg; animation-delay: 0.05s; }
+.splash-tab:nth-child(2) { top: 50px; background: var(--chip-green-bg);  --fx: 76px;  --fy: 34px;  --fr: 18deg;  animation-delay: 0.16s; }
+.splash-tab:nth-child(3) { top: 34px; background: var(--chip-pink-bg);   --fx: -84px; --fy: -18px; --fr: 26deg;  animation-delay: 0.27s; }
+.splash-tab:nth-child(4) { top: 18px; background: var(--chip-purple-bg); --fx: 68px;  --fy: -30px; --fr: -16deg; animation-delay: 0.38s; }
+.splash-tab:nth-child(5) { top: 2px;  background: var(--accent-yellow);  --fx: 0px;   --fy: -56px; --fr: 8deg;   animation-delay: 0.49s; }
+
+@keyframes tabFlyIn {
+  0%   { opacity: 0; transform: translate(var(--fx), var(--fy)) rotate(var(--fr)) scale(0.9); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+}
+
+/* One small settle-bounce once the last tab lands, so the stack reads as
+   physical rather than just stopping dead. */
+.splash-stack { animation: stackSettle 0.4s var(--spring) 1.05s both; }
+@keyframes stackSettle {
+  0%   { transform: translateY(0) scaleY(1); }
+  40%  { transform: translateY(3px) scaleY(0.94); }
+  100% { transform: translateY(0) scaleY(1); }
+}
+
+.splash-wordmark {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: var(--label);
+  opacity: 0;
+  animation: splashTextIn 0.45s var(--ease-out) 1.2s forwards;
+}
+.splash-tagline {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tertiaryLabel);
+  opacity: 0;
+  margin-top: -10px;
+  animation: splashTextIn 0.45s var(--ease-out) 1.45s forwards;
+}
+
+@keyframes splashFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; visibility: hidden; }
+}
+@keyframes splashTextIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-screen { display: none; }
+}
+
+/* ================= Stacklet (AI companion) ================= */
+.stacklet-sprite {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  overflow: visible;
+  animation: stackletBob 3.2s ease-in-out infinite;
+}
+@keyframes stackletBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+.stacklet-eye {
+  transform-origin: center;
+  animation: stackletBlink 4.6s infinite;
+}
+@keyframes stackletBlink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.1); }
+}
+/* Thinking state: sprite leans + the spark pulses, so waiting on an API
+   call looks intentional instead of frozen. */
+.stacklet-sprite.thinking { animation: stackletThink 0.9s ease-in-out infinite; }
+@keyframes stackletThink {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(3deg); }
+}
+.stacklet-sprite.thinking .stacklet-spark { animation: sparkPulse 0.7s ease-in-out infinite; }
+@keyframes sparkPulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+.stacklet-spark { transform-origin: center; transform-box: fill-box; }
+
+.stacklet-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.stacklet-greeting { min-width: 0; }
+.stacklet-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--label);
+}
+.stacklet-status {
+  font-size: 11.5px;
+  color: var(--tertiaryLabel);
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 2px;
+  margin-bottom: 10px;
+}
+.chat-msg {
+  font-size: 12.5px;
+  line-height: 1.45;
+  padding: 8px 11px;
+  border-radius: var(--radius-md);
+  max-width: 88%;
+  word-break: break-word;
+  animation: riseIn 0.25s var(--ease-out) both;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--accent-yellow);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.chat-msg.bot {
+  align-self: flex-start;
+  background: var(--systemGrey6);
+  color: var(--label);
+  border: 1px solid var(--border);
+}
+.chat-msg.system {
+  align-self: center;
+  background: transparent;
+  color: var(--tertiaryLabel);
+  font-size: 11.5px;
+  font-style: italic;
+  max-width: 100%;
+  text-align: center;
+}
+
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input-row .text-input { flex: 1; }
+
+/* Proposed-action cards: Stacklet never acts straight off its own
+   suggestion unless auto-run is on — these are the confirm step. */
+.action-proposal {
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  margin-top: 8px;
+  background: var(--card-bg-solid);
+  animation: riseIn 0.25s var(--ease-out) both;
+}
+.action-proposal-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--label);
+  margin-bottom: 3px;
+}
+.action-proposal-desc {
+  font-size: 11.5px;
+  color: var(--secondaryLabel);
+  margin-bottom: 9px;
+  line-height: 1.4;
+}
+.action-proposal-btns { display: flex; gap: 8px; }
+.action-proposal-btns .btn { flex: 1; padding: 7px 10px; font-size: 12px; }
+.action-proposal.resolved { opacity: 0.55; }
+.action-resolved-note {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tertiaryLabel);
+}
+
+.danger-note {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--chip-red-ink);
+  background: var(--chip-red-bg);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+/* ================= Stacklet, the character ================= */
+/* Built as layered SVG parts rather than one flat drawing so each piece
+   (eyes, arms, feet, spark) can animate independently. State is driven by a
+   class on the wrapper: idle, sleeping, walking, working. */
+
+.stacklet {
+  position: relative;
+  width: 52px;
+  height: 58px;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.stacklet svg { width: 100%; height: 100%; overflow: visible; display: block; }
+
+/* Perched on the logo mark in the header. Slightly oversized and nudged up
+   so he reads as sitting on top of the stack rather than floating beside it. */
+.stacklet.perched {
+  position: absolute;
+  width: 34px;
+  height: 38px;
+  top: -12px;
+  left: 12px;
+  z-index: 3;
+}
+
+.stk-body { transform-origin: 50% 100%; transform-box: fill-box; }
+.stk-arm-l, .stk-arm-r { transform-origin: 90% 10%; transform-box: fill-box; }
+.stk-foot-l, .stk-foot-r { transform-origin: 50% 50%; transform-box: fill-box; }
+.stk-spark { transform-origin: center; transform-box: fill-box; }
+.stk-eye-open, .stk-eye-shut, .stk-zzz { transition: opacity 0.2s ease; }
+.stk-eye-shut, .stk-zzz { opacity: 0; }
+
+/* --- idle: gentle breathing bob + occasional blink --- */
+.stacklet.idle .stk-all { animation: stkBob 3.4s ease-in-out infinite; }
+.stacklet.idle .stk-eye-open { animation: stkBlink 5.2s infinite; }
+@keyframes stkBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2.5px); }
+}
+@keyframes stkBlink {
+  0%, 93%, 100% { transform: scaleY(1); }
+  96%           { transform: scaleY(0.08); }
+}
+.stk-eye-open { transform-origin: center; transform-box: fill-box; }
+
+/* --- sleeping: slumped, eyes shut, Zzz drifting up --- */
+.stacklet.sleeping .stk-all { animation: stkSleepBreathe 4.2s ease-in-out infinite; }
+.stacklet.sleeping .stk-eye-open { opacity: 0; }
+.stacklet.sleeping .stk-eye-shut { opacity: 1; }
+.stacklet.sleeping .stk-zzz { opacity: 1; animation: stkZzz 2.6s ease-in-out infinite; }
+.stacklet.sleeping .stk-spark { opacity: 0.15; }
+@keyframes stkSleepBreathe {
+  0%, 100% { transform: translateY(1px) scale(1, 0.985); }
+  50%      { transform: translateY(3px) scale(1.01, 1); }
+}
+@keyframes stkZzz {
+  0%   { opacity: 0;   transform: translate(0, 2px) scale(0.7); }
+  35%  { opacity: 0.9; }
+  100% { opacity: 0;   transform: translate(5px, -12px) scale(1.15); }
+}
+
+/* --- waking: a startled pop, played once on click --- */
+.stacklet.waking .stk-all { animation: stkWake 0.55s var(--spring) both; }
+@keyframes stkWake {
+  0%   { transform: translateY(2px) scale(1, 0.94); }
+  35%  { transform: translateY(-7px) scale(0.95, 1.09); }
+  70%  { transform: translateY(0) scale(1.04, 0.97); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+/* --- walking: squash-stretch bob with alternating feet and swinging arms --- */
+.stacklet.walking .stk-all  { animation: stkWalkBob 0.34s ease-in-out infinite; }
+.stacklet.walking .stk-foot-l { animation: stkStepA 0.34s ease-in-out infinite; }
+.stacklet.walking .stk-foot-r { animation: stkStepB 0.34s ease-in-out infinite; }
+.stacklet.walking .stk-arm-l  { animation: stkSwingA 0.34s ease-in-out infinite; }
+.stacklet.walking .stk-arm-r  { animation: stkSwingB 0.34s ease-in-out infinite; }
+@keyframes stkWalkBob {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50%      { transform: translateY(-2.5px) scale(0.985, 1.015); }
+}
+@keyframes stkStepA {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(2.5px, -2px); }
+}
+@keyframes stkStepB {
+  0%, 100% { transform: translate(2.5px, -2px); }
+  50%      { transform: translate(0, 0); }
+}
+@keyframes stkSwingA {
+  0%, 100% { transform: rotate(16deg); }
+  50%      { transform: rotate(-16deg); }
+}
+@keyframes stkSwingB {
+  0%, 100% { transform: rotate(-16deg); }
+  50%      { transform: rotate(16deg); }
+}
+
+/* --- working: the "light speed" state. Lean forward, blur the trail,
+       crank the spark. Used while an action is actually executing. --- */
+.stacklet.working .stk-all { animation: stkWalkBob 0.12s ease-in-out infinite; }
+.stacklet.working .stk-foot-l { animation: stkStepA 0.12s linear infinite; }
+.stacklet.working .stk-foot-r { animation: stkStepB 0.12s linear infinite; }
+.stacklet.working .stk-body { transform: rotate(-9deg); }
+.stacklet.working .stk-spark { animation: stkSparkSpin 0.5s linear infinite; }
+.stacklet.working .stk-trail { opacity: 1; animation: stkTrail 0.3s linear infinite; }
+@keyframes stkSparkSpin {
+  0%   { transform: rotate(0deg) scale(1); }
+  100% { transform: rotate(360deg) scale(1.25); }
+}
+.stk-trail { opacity: 0; }
+@keyframes stkTrail {
+  0%   { opacity: 0.55; transform: translateX(0); }
+  100% { opacity: 0;    transform: translateX(-12px); }
+}
+
+/* --- the walking track ---
+   Stacklet used to own a 76px row above the chat, which ate most of the
+   visible history in a popup this size. He's now an overlay along the
+   bottom edge of the log itself: no layout cost, and he walks in front of
+   the conversation instead of beside it. */
+.chat-wrap { position: relative; }
+
+.stacklet-stage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 44px;
+  pointer-events: none;
+  /* Deliberately not overflow:hidden. The speech bubble is a child and sits
+     above the strip, so clipping here would cut it off entirely. Footprint
+     and walk positions are clamped in JS instead. */
+}
+.stacklet-stage .stacklet {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  width: 34px;
+  height: 38px;
+  pointer-events: auto;
+  /* Transform (not `left`) so the browser can composite the walk on the GPU
+     instead of reflowing the whole card every frame. */
+  transform: translateX(0);
+  transition: transform 0.9s cubic-bezier(0.37, 0, 0.24, 1);
+}
+.stacklet-stage .stacklet.flipped svg { transform: scaleX(-1); }
+.stacklet-stage .stacklet.dash { transition-duration: 0.34s; }
+
+/* Footprints drop behind him as he walks and fade on their own. Capped in
+   JS so they can never accumulate into a trail across the whole strip. */
+.stk-footprint {
+  position: absolute;
+  bottom: 3px;
+  width: 5px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--tertiaryLabel);
+  opacity: 0.45;
+  animation: footFade 1.6s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes footFade {
+  0%   { opacity: 0.45; transform: scale(1); }
+  100% { opacity: 0;    transform: scale(0.6); }
+}
+
+/* Leave room at the bottom of the log so the last message never sits
+   underneath him. */
+.chat-log { padding-bottom: 46px; }
+
+/* --- speech bubble --- */
+.stacklet-bubble {
+  position: absolute;
+  bottom: 42px;
+  left: 0;
+  max-width: 215px;
+  background: var(--card-bg-solid);
+  border: 1px solid var(--separator);
+  border-radius: 14px;
+  padding: 9px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--label);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  transform-origin: 20px 100%;
+  transition: opacity 0.22s ease, transform 0.28s var(--spring);
+  pointer-events: none;
+  z-index: 5;
+}
+.stacklet-bubble.show { opacity: 1; transform: translateY(0) scale(1); }
+.stacklet-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 18px;
+  width: 11px;
+  height: 11px;
+  background: var(--card-bg-solid);
+  border-right: 1px solid var(--separator);
+  border-bottom: 1px solid var(--separator);
+  transform: rotate(45deg);
+}
+
+/* Blinking caret while text types itself in */
+.type-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--label);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: caretBlink 0.9s steps(1) infinite;
+}
+@keyframes caretBlink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+/* ================= Tutorial overlay ================= */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+}
+.tutorial-overlay.show { display: block; }
+
+/* The spotlight is one absolutely-positioned box with a huge outward
+   box-shadow. That dims everything outside it without needing a second
+   masking layer or clip-path, and it animates smoothly between targets. */
+.tutorial-spotlight {
+  position: absolute;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(10, 8, 20, 0.72);
+  transition: all 0.42s var(--ease-out);
+  pointer-events: none;
+}
+.tutorial-spotlight::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  border: 2px solid var(--accent-yellow);
+  animation: spotPulse 1.8s ease-in-out infinite;
+}
+@keyframes spotPulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(1.035); }
+}
+
+.tutorial-card {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  background: var(--card-bg-solid);
+  border: 1px solid var(--separator);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+  z-index: 92;
+  animation: riseIn 0.32s var(--ease-out) both;
+}
+.tutorial-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.tutorial-text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--label);
+  min-height: 38px;
+  flex: 1;
+}
+.tutorial-step-count {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--tertiaryLabel);
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.tutorial-nav { display: flex; gap: 8px; align-items: center; }
+.tutorial-nav .btn { flex: 1; height: 36px; font-size: 12.5px; }
+.tutorial-skip {
+  background: transparent;
+  border: none;
+  color: var(--tertiaryLabel);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 9px;
+}
+.tutorial-skip:hover { color: var(--label); background: var(--systemGrey5); }
+
+/* Progress pips */
+.tutorial-pips { display: flex; gap: 5px; justify-content: center; margin-top: 11px; }
+.tutorial-pip {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--systemGrey5);
+  transition: all 0.3s var(--ease-out);
+}
+.tutorial-pip.done { background: var(--tertiaryLabel); }
+.tutorial-pip.active { background: var(--accent-yellow); width: 16px; border-radius: 3px; }
