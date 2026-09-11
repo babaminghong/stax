@@ -99,11 +99,16 @@
         </div>
         <div class="header-actions">
           <span class="version-badge" id="versionBadge">v1.3</span>
+          <button id="openPalette" class="icon-btn" title="Quick switch (jump to a tab)">🔎</button>
           <button id="openSettings" class="icon-btn" title="Settings">⚙️</button>
         </div>
       </div>
 
       <div id="statusBanner" class="status-banner"></div>
+      <div id="undoBanner" class="undo-banner" style="display: none;">
+        <span id="undoText"></span>
+        <button id="undoBtn" class="undo-link">Undo</button>
+      </div>
 
       <!-- Quick Action Controls -->
       <div class="card space-y">
@@ -116,6 +121,10 @@
           <button id="dedupe" class="btn btn-secondary">Close Duplicates</button>
           <button id="createGroupBtn" class="btn btn-secondary">+ New Group</button>
         </div>
+        <div class="grid-2">
+          <button id="suspendInactive" class="btn btn-secondary" title="Discards tabs untouched for 20+ minutes to free up RAM">Suspend Inactive</button>
+          <button id="saveSessionBtn" class="btn btn-secondary">Save Session</button>
+        </div>
         <div class="section-note">Smart Sort runs entirely on local rules — it only calls AI on anything left over, and only if you've set a key.</div>
         <button id="aiSort" class="btn btn-ai-subtle btn-block" style="margin-top: 4px;"><span class="ai-spark">✨</span>&nbsp;Re-sort everything with AI (optional)</button>
       </div>
@@ -127,6 +136,34 @@
           <div class="empty-state">No active groups in this window</div>
         </div>
       </div>
+
+      <!-- Saved Sessions -->
+      <div class="card">
+        <div class="label">Saved Sessions</div>
+        <div class="section-note" style="margin-bottom: 8px;">Snapshot your current tabs and groups, close them, and reopen the whole set later — even after restarting the browser.</div>
+        <div id="sessionSaveRow" style="display: none; gap: 8px; margin-bottom: 10px;">
+          <input type="text" id="sessionNameInput" class="text-input" style="flex: 1;" placeholder="Session name (e.g. Client Project A)" maxlength="60" />
+          <button id="sessionSaveConfirm" class="btn btn-primary" style="flex-shrink: 0;">Save</button>
+        </div>
+        <div id="sessionsList" class="groups-container">
+          <div class="empty-state">No saved sessions yet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Switch — fuzzy-search open tabs, or fall back to AI for a
+         natural-language description if nothing matches locally -->
+    <div id="paletteScreen" class="screen-flush" style="display: none;">
+      <div class="settings-header">
+        <button id="paletteBack" class="back-btn" title="Back">←</button>
+        <div class="settings-title">Quick Switch</div>
+      </div>
+      <input type="text" id="paletteInput" class="text-input" style="width: 100%; margin-bottom: 10px;" placeholder="Search open tabs, or describe one…" />
+      <div id="paletteResults" class="groups-container"></div>
+      <button id="paletteAiSearch" class="btn btn-ai-subtle btn-block" style="margin-top: 10px; display: none;">
+        <span class="ai-spark">✨</span>&nbsp;No match — ask AI to find it
+      </button>
+      <div id="paletteMsg" class="wizard-hint" style="text-align: center;"></div>
     </div>
 
     <!-- Settings — lives entirely inside the popup, no separate window/tab -->

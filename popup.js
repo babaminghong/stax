@@ -101,6 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (res?.ok) {
         const suffix = res.aiUsed ? " (AI covered the rest)" : "";
         showStatus(`Created ${res.groupsCreated} group(s)${suffix}.`, "ok");
+        if (res.groupsCreated > 0) showUndoBanner("Sort made some changes.");
       } else {
         showStatus("Sort failed — try again.", "error");
       }
@@ -120,6 +121,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         showStatus("No response from background worker.", "error");
       } else if (res.ok) {
         showStatus(`AI created ${res.groupsCreated} group(s).`, "ok");
+        if (res.groupsCreated > 0) showUndoBanner("AI sort made some changes.");
       } else if (res.error === "no-key") {
         showStatus("No API key set. Open Settings to add one.", "error");
       } else {
@@ -140,7 +142,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("dedupe")?.addEventListener("click", async () => {
     const res = await sendMessage({ type: "REMOVE_DUPLICATES" });
-    if (res?.ok) showStatus(`Closed ${res.removed} duplicate tab(s).`, "ok");
+    if (res?.ok) {
+      showStatus(`Closed ${res.removed} duplicate tab(s).`, "ok");
+      if (res.removed > 0) showUndoBanner("Closed some duplicate tabs.");
+    }
     loadActiveGroups();
   });
 
@@ -152,7 +157,221 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadActiveGroups();
     }
   });
+
+  document.getElementById("undoBtn")?.addEventListener("click", async () => {
+    hideUndoBanner();
+    const res = await sendMessage({ type: "UNDO_LAST_ACTION" });
+    if (res?.ok) {
+      showStatus(res.type === "dedupe" ? "Duplicate tabs reopened." : "Sort undone.", "ok");
+    } else {
+      showStatus("Nothing left to undo.", "error");
+    }
+    loadActiveGroups();
+  });
+
+  document.getElementById("suspendInactive")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    await withCurrentWindow(async (windowId) => {
+      const res = await sendMessage({ type: "SUSPEND_INACTIVE", windowId });
+      if (res?.ok) {
+        showStatus(res.suspended > 0 ? `Suspended ${res.suspended} inactive tab(s).` : "No inactive tabs to suspend right now.", "ok");
+      } else {
+        showStatus("Couldn't suspend tabs — try again.", "error");
+      }
+    });
+    btn.disabled = false;
+  });
+
+  // ---- Saved sessions ----
+  const sessionSaveRow = document.getElementById("sessionSaveRow");
+  const sessionNameInput = document.getElementById("sessionNameInput");
+
+  document.getElementById("saveSessionBtn")?.addEventListener("click", () => {
+    const showing = sessionSaveRow.style.display === "flex";
+    sessionSaveRow.style.display = showing ? "none" : "flex";
+    if (!showing) sessionNameInput.focus();
+  });
+
+  sessionNameInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("sessionSaveConfirm").click();
+  });
+
+  document.getElementById("sessionSaveConfirm")?.addEventListener("click", async () => {
+    const name = sessionNameInput.value.trim();
+    await withCurrentWindow(async (windowId) => {
+      const res = await sendMessage({ type: "SAVE_SESSION", windowId, name });
+      if (res?.ok) {
+        showStatus(`Saved "${res.session.name}" (${res.session.tabCount} tabs).`, "ok");
+        sessionNameInput.value = "";
+        sessionSaveRow.style.display = "none";
+        loadSessions();
+      } else if (res?.error === "no-tabs") {
+        showStatus("No tabs to save in this window.", "error");
+      } else {
+        showStatus("Couldn't save the session — try again.", "error");
+      }
+    });
+  });
+
+  loadSessions();
+
+  // ---- Quick Switch (command palette) ----
+  const paletteScreen = document.getElementById("paletteScreen");
+  document.getElementById("openPalette")?.addEventListener("click", () => {
+    mainScreen.style.display = "none";
+    paletteScreen.style.display = "block";
+    openPaletteScreen();
+  });
+  document.getElementById("paletteBack")?.addEventListener("click", () => {
+    paletteScreen.style.display = "none";
+    mainScreen.style.display = "block";
+  });
 });
+
+function showUndoBanner(text) {
+  const banner = document.getElementById("undoBanner");
+  const textEl = document.getElementById("undoText");
+  if (!banner || !textEl) return;
+  textEl.textContent = text;
+  banner.style.display = "flex";
+  clearTimeout(showUndoBanner._t);
+  // Undo only stays useful for a couple minutes server-side (see
+  // UNDO_WINDOW_MS in background.js) — hide the banner well before that
+  // window closes so it never invites a click that's already too late.
+  showUndoBanner._t = setTimeout(hideUndoBanner, 8000);
+}
+
+function hideUndoBanner() {
+  const banner = document.getElementById("undoBanner");
+  if (banner) banner.style.display = "none";
+}
+
+// ---- Saved sessions ----
+async function loadSessions() {
+  const list = document.getElementById("sessionsList");
+  if (!list) return;
+  const res = await sendMessage({ type: "LIST_SESSIONS" });
+  const sessions = res?.sessions || [];
+
+  if (!sessions.length) {
+    list.innerHTML = `<div class="empty-state">No saved sessions yet</div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  for (const s of sessions) {
+    const dateStr = new Date(s.savedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const item = document.createElement("div");
+    item.className = "group-item";
+    item.innerHTML = `
+      <div style="display:flex; align-items:center; min-width: 0;">
+        <span class="group-badge group-badge-grey">📁</span>
+        <span class="group-name">${escapeHtml(s.name)}</span>
+        <span class="group-count">${s.tabCount}</span>
+      </div>
+      <div style="display:flex; gap: 4px; flex-shrink: 0;">
+        <button class="btn-icon-small session-restore" title="Reopen (saved ${dateStr})">↩</button>
+        <button class="btn-icon-small session-delete" title="Delete">✕</button>
+      </div>
+    `;
+    item.querySelector(".session-restore").addEventListener("click", async () => {
+      const res2 = await sendMessage({ type: "RESTORE_SESSION", id: s.id });
+      showStatus(res2?.ok ? `Reopened "${s.name}".` : "Couldn't reopen that session.", res2?.ok ? "ok" : "error");
+    });
+    item.querySelector(".session-delete").addEventListener("click", async () => {
+      await sendMessage({ type: "DELETE_SESSION", id: s.id });
+      loadSessions();
+    });
+    list.appendChild(item);
+  }
+}
+
+// ---- Quick Switch (command palette): local fuzzy filter first, with an
+// AI natural-language fallback for when you can't remember the exact
+// title/URL of the tab you're after ----
+async function openPaletteScreen() {
+  const input = document.getElementById("paletteInput");
+  const results = document.getElementById("paletteResults");
+  const aiBtn = document.getElementById("paletteAiSearch");
+  const msg = document.getElementById("paletteMsg");
+  input.value = "";
+  msg.textContent = "";
+  aiBtn.style.display = "none";
+  input.focus();
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const windowId = activeTab?.windowId;
+  const allTabs = windowId != null ? await chrome.tabs.query({ windowId, pinned: false }) : [];
+
+  function renderResults(list) {
+    msg.textContent = "";
+    if (!list.length) {
+      results.innerHTML = `<div class="empty-state">No matching tabs</div>`;
+      aiBtn.style.display = "block";
+      return;
+    }
+    aiBtn.style.display = "none";
+    results.innerHTML = "";
+    list.slice(0, 20).forEach(t => {
+      let host = "";
+      try { host = new URL(t.url).hostname; } catch { /* ignore malformed URL */ }
+      const item = document.createElement("div");
+      item.className = "group-item";
+      item.style.cursor = "pointer";
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; min-width: 0;">
+          <span class="group-badge group-badge-grey">${glyphFor(host)}</span>
+          <span class="group-name">${escapeHtml(t.title || host || "Untitled tab")}</span>
+        </div>
+      `;
+      item.addEventListener("click", async () => {
+        await sendMessage({ type: "JUMP_TO_TAB", tabId: t.id });
+        window.close();
+      });
+      results.appendChild(item);
+    });
+  }
+
+  function filterLocal(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return allTabs;
+    return allTabs.filter(t => (t.title || "").toLowerCase().includes(q) || (t.url || "").toLowerCase().includes(q));
+  }
+
+  renderResults(allTabs);
+
+  // .oninput (not addEventListener) — this function re-runs every time the
+  // palette is opened, and re-adding a listener each time would stack up
+  // duplicate handlers across the popup's lifetime. Assigning .oninput just
+  // replaces the previous one instead.
+  input.oninput = () => renderResults(filterLocal(input.value));
+
+  aiBtn.onclick = async () => {
+    const query = input.value.trim();
+    if (!query) return;
+    aiBtn.disabled = true;
+    const originalHtml = aiBtn.innerHTML;
+    aiBtn.innerHTML = `<span class="ai-spark">✨</span>&nbsp;Asking AI…`;
+    const res = await sendMessage({ type: "AI_SEARCH_TABS", windowId, query });
+    aiBtn.disabled = false;
+    aiBtn.innerHTML = originalHtml;
+
+    if (res?.ok && res.tabId != null) {
+      await sendMessage({ type: "JUMP_TO_TAB", tabId: res.tabId });
+      window.close();
+    } else if (res?.error === "no-key") {
+      msg.style.color = "var(--chip-red-ink)";
+      msg.textContent = "No API key set — add one in Settings to use AI search.";
+    } else if (res?.ok && res.tabId == null) {
+      msg.style.color = "var(--chip-red-ink)";
+      msg.textContent = "AI couldn't find a matching tab.";
+    } else {
+      msg.style.color = "var(--chip-red-ink)";
+      msg.textContent = friendlyAiError(res?.error);
+    }
+  };
+}
 
 async function withCurrentWindow(fn) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

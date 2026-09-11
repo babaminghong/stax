@@ -438,6 +438,27 @@ body {
   font-weight: 700;
   font-size: 13px;
   color: var(--label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-name-input {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--label);
+  background: var(--systemBackground, transparent);
+  border: 1px solid var(--separator);
+  border-radius: 6px;
+  padding: 1px 5px;
+  width: 100%;
+  min-width: 0;
+}
+
+.group-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .group-count {
@@ -477,6 +498,29 @@ body {
 .status-banner.info  { background: var(--chip-blue-bg); color: var(--chip-blue-ink); }
 .status-banner.error { background: var(--chip-red-bg);  color: var(--chip-red-ink); }
 .status-banner.ok    { background: var(--chip-green-bg); color: var(--chip-green-ink); }
+
+.undo-banner {
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 10px 8px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  background: var(--chip-grey-bg);
+  color: var(--chip-grey-ink);
+}
+.undo-link {
+  background: transparent;
+  border: none;
+  color: var(--chip-blue-ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+.undo-link:hover { background: var(--systemGrey5); }
 
 .switch-input {
   appearance: none;
