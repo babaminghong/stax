@@ -342,39 +342,44 @@ function hideUndoBanner() {
 async function loadSessions() {
   const list = document.getElementById("sessionsList");
   if (!list) return;
-  const res = await sendMessage({ type: "LIST_SESSIONS" });
-  const sessions = res?.sessions || [];
+  try {
+    const res = await sendMessage({ type: "LIST_SESSIONS" });
+    const sessions = res?.sessions || [];
 
-  if (!sessions.length) {
-    list.innerHTML = `<div class="empty-state">No saved sessions yet</div>`;
-    return;
-  }
+    if (!sessions.length) {
+      list.innerHTML = `<div class="empty-state">No saved sessions yet</div>`;
+      return;
+    }
 
-  list.innerHTML = "";
-  for (const s of sessions) {
-    const dateStr = new Date(s.savedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    const item = document.createElement("div");
-    item.className = "group-item";
-    item.innerHTML = `
-      <div style="display:flex; align-items:center; min-width: 0;">
-        <span class="group-badge group-badge-grey">📁</span>
-        <span class="group-name">${escapeHtml(s.name)}</span>
-        <span class="group-count">${s.tabCount}</span>
-      </div>
-      <div style="display:flex; gap: 4px; flex-shrink: 0;">
-        <button class="btn-icon-small session-restore" title="Reopen (saved ${dateStr})">↩</button>
-        <button class="btn-icon-small session-delete" title="Delete">✕</button>
-      </div>
-    `;
-    item.querySelector(".session-restore").addEventListener("click", async () => {
-      const res2 = await sendMessage({ type: "RESTORE_SESSION", id: s.id });
-      showStatus(res2?.ok ? `Reopened "${s.name}".` : "Couldn't reopen that session.", res2?.ok ? "ok" : "error");
-    });
-    item.querySelector(".session-delete").addEventListener("click", async () => {
-      await sendMessage({ type: "DELETE_SESSION", id: s.id });
-      loadSessions();
-    });
-    list.appendChild(item);
+    list.innerHTML = "";
+    for (const s of sessions) {
+      const dateStr = new Date(s.savedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const item = document.createElement("div");
+      item.className = "group-item";
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; min-width: 0;">
+          <span class="group-badge group-badge-grey">📁</span>
+          <span class="group-name">${escapeHtml(s.name)}</span>
+          <span class="group-count">${s.tabCount}</span>
+        </div>
+        <div style="display:flex; gap: 4px; flex-shrink: 0;">
+          <button class="btn-icon-small session-restore" title="Reopen (saved ${dateStr})">↩</button>
+          <button class="btn-icon-small session-delete" title="Delete">✕</button>
+        </div>
+      `;
+      item.querySelector(".session-restore").addEventListener("click", async () => {
+        const res2 = await sendMessage({ type: "RESTORE_SESSION", id: s.id });
+        showStatus(res2?.ok ? `Reopened "${s.name}".` : "Couldn't reopen that session.", res2?.ok ? "ok" : "error");
+      });
+      item.querySelector(".session-delete").addEventListener("click", async () => {
+        await sendMessage({ type: "DELETE_SESSION", id: s.id });
+        loadSessions();
+      });
+      list.appendChild(item);
+    }
+  } catch (err) {
+    console.warn("Stax: loadSessions failed", err);
+    list.innerHTML = `<div class="empty-state">Couldn't load sessions.</div>`;
   }
 }
 
@@ -606,34 +611,38 @@ function initOnboardingWizard(onboardScreen, mainScreen, settingsScreen) {
 async function loadActiveGroups() {
   const groupsList = document.getElementById("activeGroupsList");
   if (!groupsList) return;
+  try {
+    const window = await chrome.windows.getCurrent();
+    const groups = await chrome.tabGroups.query({ windowId: window.id });
 
-  const window = await chrome.windows.getCurrent();
-  const groups = await chrome.tabGroups.query({ windowId: window.id });
+    if (!groups.length) {
+      groupsList.innerHTML = `<div class="empty-state">No active groups in this window</div>`;
+      return;
+    }
 
-  if (!groups.length) {
-    groupsList.innerHTML = `<div class="empty-state">No active groups in this window</div>`;
-    return;
-  }
-
-  groupsList.innerHTML = "";
-  for (const g of groups) {
-    const tabsInGroup = await chrome.tabs.query({ groupId: g.id });
-    const item = document.createElement("div");
-    item.className = "group-item";
-    item.innerHTML = `
-      <div style="display:flex; align-items:center;">
-        <span class="group-badge group-badge-${g.color}">${glyphFor(g.title)}</span>
-        <span class="group-name">${escapeHtml(g.title || "Unnamed Group")}</span>
-        <span class="group-count">${tabsInGroup.length}</span>
-      </div>
-      <button class="btn-icon-small" title="Ungroup" data-group-id="${g.id}">✕</button>
-    `;
-    item.querySelector("button").addEventListener("click", async (e) => {
-      const groupId = Number(e.currentTarget.dataset.groupId);
-      await sendMessage({ type: "UNGROUP_ONE", groupId });
-      loadActiveGroups();
-    });
-    groupsList.appendChild(item);
+    groupsList.innerHTML = "";
+    for (const g of groups) {
+      const tabsInGroup = await chrome.tabs.query({ groupId: g.id });
+      const item = document.createElement("div");
+      item.className = "group-item";
+      item.innerHTML = `
+        <div style="display:flex; align-items:center;">
+          <span class="group-badge group-badge-${g.color}">${glyphFor(g.title)}</span>
+          <span class="group-name">${escapeHtml(g.title || "Unnamed Group")}</span>
+          <span class="group-count">${tabsInGroup.length}</span>
+        </div>
+        <button class="btn-icon-small" title="Ungroup" data-group-id="${g.id}">✕</button>
+      `;
+      item.querySelector("button").addEventListener("click", async (e) => {
+        const groupId = Number(e.currentTarget.dataset.groupId);
+        await sendMessage({ type: "UNGROUP_ONE", groupId });
+        loadActiveGroups();
+      });
+      groupsList.appendChild(item);
+    }
+  } catch (err) {
+    console.warn("Stax: loadActiveGroups failed", err);
+    groupsList.innerHTML = `<div class="empty-state">Couldn't load groups. Try reloading the extension.</div>`;
   }
 }
 

@@ -130,6 +130,7 @@
         <button class="nav-tab active" data-view="dashboard"><span class="nav-tab-glyph">▤</span>Tabs</button>
         <button class="nav-tab" data-view="stacklet"><span class="nav-tab-glyph">◕</span>Stacklet</button>
         <button class="nav-tab" data-view="search"><span class="nav-tab-glyph">⌕</span>Find</button>
+        <button class="nav-tab" data-view="stats"><span class="nav-tab-glyph">◔</span>Stats</button>
       </div>
 
       <div id="statusBanner" class="status-banner"></div>
@@ -154,6 +155,10 @@
           <button id="suspendInactive" class="btn btn-secondary" title="Discards tabs untouched for 20+ minutes to free up RAM">Suspend Inactive</button>
           <button id="saveSessionBtn" class="btn btn-secondary">Save Session</button>
         </div>
+        <div class="grid-2">
+          <button id="focusToggle" class="btn btn-secondary" title="Collapse every group except the one you're working in">Focus Mode</button>
+          <button id="exportMd" class="btn btn-secondary" title="Copy all tabs as a markdown link list">Copy as Markdown</button>
+        </div>
         <div class="section-note">Smart Sort runs entirely on local rules. It only calls AI on whatever is left over, and only if you've set a key.</div>
         <button id="aiSort" class="btn btn-ai-subtle btn-block" style="margin-top: 4px;"><span class="ai-spark">✨</span>&nbsp;Re-sort everything with AI (optional)</button>
       </div>
@@ -163,6 +168,14 @@
         <div class="label">Active Tab Groups</div>
         <div id="activeGroupsList" class="groups-container">
           <div class="empty-state">No active groups in this window</div>
+        </div>
+      </div>
+
+      <!-- Recently Closed -->
+      <div class="card">
+        <div class="label">Recently Closed</div>
+        <div id="recentlyClosedList" class="groups-container">
+          <div class="empty-state">Nothing closed recently</div>
         </div>
       </div>
 
@@ -178,7 +191,56 @@
           <div class="empty-state">No saved sessions yet</div>
         </div>
       </div>
+
+      <!-- Read later: closing a tab stops being destructive -->
+      <div class="card">
+        <div class="label">Read Later</div>
+        <div class="section-note" style="margin-bottom: 10px;">Archiving closes a tab but keeps the link, so the count actually goes down without losing anything.</div>
+        <div class="grid-2" style="margin-bottom: 10px;">
+          <button id="archiveStale" class="btn btn-secondary" style="font-size: 12px;">Archive stale tabs</button>
+          <button id="clearArchive" class="btn btn-secondary" style="font-size: 12px;">Clear list</button>
+        </div>
+        <div id="archiveList" class="groups-container">
+          <div class="empty-state">Nothing archived yet</div>
+        </div>
+      </div>
       </div><!-- /dashboardView -->
+
+      <!-- Stats: where your attention actually went. All computed locally
+           from active-tab timings, nothing leaves the machine. -->
+      <div id="statsView" style="display: none;">
+        <div class="card">
+          <div class="label">This Week</div>
+          <div class="stat-headline" id="statHeadline">No time tracked yet</div>
+          <div class="section-note" id="statSub">Stax starts counting as soon as you switch between tabs.</div>
+          <div class="daybar-row" id="dayBars"></div>
+        </div>
+
+        <div class="card">
+          <div class="label">By Category</div>
+          <div id="catBars" class="groups-container" style="max-height: none;">
+            <div class="empty-state">Nothing tracked yet</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">Right Now</div>
+          <div class="settings-row" style="border-top: none; padding-top: 0;">
+            <div class="settings-row-label">Open tabs</div>
+            <div class="stat-inline" id="statTabCount">0</div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">Groups</div>
+            <div class="stat-inline" id="statGroupCount">0</div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-label">Tabs in a group</div>
+            <div class="stat-inline" id="statGrouped">0%</div>
+          </div>
+        </div>
+
+        <button id="resetStats" class="btn btn-secondary btn-block">Reset tracked time</button>
+      </div>
 
       <!-- Find: fuzzy search over open tabs, with an AI fallback for when you
            can only describe the tab rather than name it -->
