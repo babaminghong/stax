@@ -184,16 +184,89 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-// Wires up the Alt+S / Cmd+Shift+S hotkey declared in manifest.json.
+// Keyboard shortcuts. Chrome only permits four suggested_key bindings per
+// extension, so the rest are declared without one: they show up unbound on
+// chrome://extensions/shortcuts for the user to assign themselves.
+//
+// Each one notifies via the badge rather than a popup, because commands fire
+// with no UI open and a silent action feels broken.
+async function flashBadge(text, colour = "#30d158", ms = 1600) {
+  try {
+    await chrome.action.setBadgeText({ text });
+    await chrome.action.setBadgeBackgroundColor({ color: colour });
+    setTimeout(() => refreshBadgeForFocusedWindow(), ms);
+  } catch { /* badge is cosmetic */ }
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "quick-sort") return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.windowId != null) {
-    try {
-      await runLocalSort(tab.windowId);
-    } catch (err) {
-      console.warn("Stax: quick-sort command failed", err);
+  const windowId = tab?.windowId;
+  if (windowId == null) return;
+
+  try {
+    switch (command) {
+      case "quick-sort": {
+        const res = await runHybridSort(windowId);
+        await awardPoints("sort");
+        await flashBadge(String(res.groupsCreated ?? 0));
+        break;
+      }
+      case "quick-find": {
+        // There's no API to open the popup on a specific view, so stash the
+        // intent and let the popup read it on open.
+        await chrome.storage.session.set({ stax_open_view: "search" });
+        await chrome.action.openPopup().catch(() => {
+          // openPopup is not available on every channel; fall back to the
+          // side panel, which can be opened programmatically.
+          chrome.sidePanel?.open?.({ windowId }).catch(() => {});
+        });
+        break;
+      }
+      case "toggle-focus": {
+        const state = await getFocusState();
+        if (state?.active) {
+          await exitFocusMode(windowId);
+          await flashBadge("OFF", "#8e8e93");
+        } else {
+          const res = await enterFocusMode(windowId, { suspendOthers: false });
+          await awardPoints("focus");
+          await flashBadge("FOCUS", "#7c5cff");
+        }
+        break;
+      }
+      case "dedupe-tabs": {
+        const removed = await removeDuplicates();
+        await awardPoints("dedupe");
+        await flashBadge(`-${removed}`, removed ? "#ff9f0a" : "#8e8e93");
+        break;
+      }
+      case "suspend-inactive": {
+        const count = await suspendInactiveTabs(windowId);
+        await awardPoints("suspend");
+        await flashBadge(`z${count}`, "#5aa8e8");
+        break;
+      }
+      case "save-session": {
+        const res = await saveSession(windowId, "");
+        if (res.ok) await awardPoints("session_save");
+        await flashBadge(res.ok ? "SAVED" : "ERR", res.ok ? "#30d158" : "#ff453a");
+        break;
+      }
+      case "archive-stale": {
+        const res = await archiveStaleTabs(windowId, 7);
+        if (res.ok && res.archived) await awardPoints("archive");
+        await flashBadge(res.ok ? `+${res.archived || 0}` : "ERR", "#30d158");
+        break;
+      }
+      case "undo-last": {
+        const res = await undoLastAction();
+        await flashBadge(res.ok ? "UNDO" : "NONE", res.ok ? "#30d158" : "#8e8e93");
+        break;
+      }
     }
+  } catch (err) {
+    console.warn("Stax: command failed", command, err);
+    await flashBadge("ERR", "#ff453a");
   }
 });
 

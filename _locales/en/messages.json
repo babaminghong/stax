@@ -1,0 +1,60 @@
+{
+  "extName":        { "message": "Stax - Tab Engine" },
+  "extDesc":        { "message": "Smart tab organization powered by local rules and optional AI." },
+  "cmdQuickSort":   { "message": "Trigger Stax local tab sorting" },
+
+  "navTabs":        { "message": "Tabs" },
+  "navStacklet":    { "message": "Stacklet" },
+  "navFind":        { "message": "Find" },
+  "navStats":       { "message": "Stats" },
+
+  "tagline":        { "message": "Automatic tab clutter management" },
+  "smartSort":      { "message": "Smart Sort" },
+  "smartSortSub":   { "message": "Sort tabs by local rules, AI covers the rest" },
+
+  "statTabs":       { "message": "Tabs" },
+  "statGroups":     { "message": "Groups" },
+  "statGrouped":    { "message": "Grouped" },
+  "statMood":       { "message": "Mood" },
+
+  "activeGroups":   { "message": "Active Groups" },
+  "newGroup":       { "message": "+ Group" },
+  "ungroupAll":     { "message": "Ungroup all" },
+  "noGroups":       { "message": "No active groups yet. Hit Smart Sort to get started." },
+
+  "tools":          { "message": "Tools" },
+  "toolDedupe":     { "message": "Deduplicate" },
+  "toolSuspend":    { "message": "Suspend" },
+  "toolFocus":      { "message": "Focus" },
+  "toolSaveSession":{ "message": "Save Session" },
+  "toolArchive":    { "message": "Archive Stale" },
+  "toolMerge":      { "message": "Merge Windows" },
+  "toolSplit":      { "message": "Split Windows" },
+  "toolExport":     { "message": "Export MD" },
+  "aiResort":       { "message": "Re-sort everything with AI" },
+
+  "saved":          { "message": "Saved" },
+  "addReadLater":   { "message": "+ Read Later" },
+  "sessions":       { "message": "Sessions" },
+  "readLater":      { "message": "Read Later" },
+  "recentlyClosed": { "message": "Recently Closed" },
+
+  "settings":       { "message": "Settings" },
+  "preferences":    { "message": "Preferences" },
+  "autoSort":       { "message": "Auto-sort on new tab" },
+  "autoSortSub":    { "message": "Local rules only, runs a moment after a tab loads" },
+  "appearance":     { "message": "Appearance" },
+  "themeAuto":      { "message": "Auto" },
+  "themeLight":     { "message": "Light" },
+  "themeDark":      { "message": "Dark" },
+  "accentColour":   { "message": "Accent colour" },
+  "accentSub":      { "message": "Applies across the popup, side panel, and Stacklet" },
+  "saveSettings":   { "message": "Save Settings" },
+  "replayTutorial": { "message": "Replay the tutorial" },
+
+  "sortedGroups":   { "message": "Created $COUNT$ group(s).", "placeholders": { "count": { "content": "$1" } } },
+  "sortFailed":     { "message": "Sort failed, try again." },
+  "noApiKey":       { "message": "No API key set. Open Settings to add one." },
+  "undo":           { "message": "Undo" },
+  "nothingToUndo":  { "message": "Nothing left to undo." }
+}

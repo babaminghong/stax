@@ -490,3 +490,148 @@ async function restoreRecentlyClosed(sessionId) {
     return { ok: false, error: err.message };
   }
 }
+
+// ---- Merge / split windows ----
+
+async function mergeAllWindows() {
+  const windows = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  if (windows.length < 2) return { ok: true, merged: 0 };
+
+  // Sort by tab count descending so the biggest window is the target,
+  // which keeps its tab order most intact.
+  windows.sort((a, b) => b.tabs.length - a.tabs.length);
+  const [target, ...sources] = windows;
+
+  let merged = 0;
+  for (const win of sources) {
+    for (const tab of win.tabs) {
+      try {
+        await chrome.tabs.move(tab.id, { windowId: target.id, index: -1 });
+        merged++;
+      } catch (err) {
+        console.warn("Stax: merge failed for tab", tab.id, err);
+      }
+    }
+  }
+  return { ok: true, merged, targetWindowId: target.id };
+}
+
+// Moves each tab group and its tabs into a new window. Ungrouped tabs stay
+// in the original window.
+async function splitIntoWindows(windowId) {
+  const groups = await chrome.tabGroups.query({ windowId });
+  if (!groups.length) return { ok: false, error: "no-groups" };
+
+  let created = 0;
+  for (const g of groups) {
+    const tabs = await chrome.tabs.query({ groupId: g.id });
+    if (!tabs.length) continue;
+    try {
+      const newWin = await chrome.windows.create({ tabId: tabs[0].id });
+      const newTabIds = [newWin.tabs[0].id];
+      for (let i = 1; i < tabs.length; i++) {
+        await chrome.tabs.move(tabs[i].id, { windowId: newWin.id, index: -1 });
+        newTabIds.push(tabs[i].id);
+      }
+      const newGroupId = await chrome.tabs.group({ tabIds: newTabIds, createProperties: { windowId: newWin.id } });
+      await chrome.tabGroups.update(newGroupId, { title: g.title, color: g.color });
+      created++;
+    } catch (err) {
+      console.warn("Stax: split failed for group", g.id, err);
+    }
+  }
+  return { ok: true, created };
+}
+
+// ---- Group-level extras ----
+
+// Closes every tab in a group. Snapshots them first so Undo can restore,
+// since this is the most destructive single click in the UI.
+async function closeGroupTabs(groupId) {
+  try {
+    const tabs = await chrome.tabs.query({ groupId });
+    if (!tabs.length) return { ok: false, error: "empty-group" };
+    const records = tabs.map(t => ({ url: t.url, title: t.title || "" }));
+    const windowId = tabs[0].windowId;
+    await chrome.tabs.remove(tabs.map(t => t.id));
+    await recordLastAction({ type: "dedupe", windowId, removedTabs: records });
+    return { ok: true, closed: records.length };
+  } catch (err) {
+    console.warn("Stax: closeGroupTabs failed", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// Moves a group left or right among its siblings. tabGroups.move takes an
+// absolute tab index, so we work out the destination from the neighbouring
+// group's span rather than trying to offset by a fixed amount.
+async function moveGroupBy(groupId, direction) {
+  try {
+    const group = await chrome.tabGroups.get(groupId);
+    const groups = await chrome.tabGroups.query({ windowId: group.windowId });
+    const allTabs = await chrome.tabs.query({ windowId: group.windowId });
+
+    // Order groups by the index of their first tab.
+    const withIndex = groups.map(g => {
+      const tabs = allTabs.filter(t => t.groupId === g.id);
+      return { id: g.id, first: Math.min(...tabs.map(t => t.index)), size: tabs.length };
+    }).sort((a, b) => a.first - b.first);
+
+    const pos = withIndex.findIndex(g => g.id === groupId);
+    const swapWith = withIndex[pos + direction];
+    if (pos === -1 || !swapWith) return { ok: false, error: "at-edge" };
+
+    // Moving right: land after the neighbour's last tab. Moving left: land
+    // at the neighbour's first tab.
+    const target = direction > 0
+      ? swapWith.first + swapWith.size - withIndex[pos].size
+      : swapWith.first;
+
+    await chrome.tabGroups.move(groupId, { index: Math.max(0, target) });
+    return { ok: true };
+  } catch (err) {
+    console.warn("Stax: moveGroupBy failed", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// ---- Tab tree ----
+// Chrome records which tab opened which via openerTabId. Nothing surfaces
+// that, so a research session looks like a flat wall of tabs when it was
+// actually a branching trail. This reconstructs the forest.
+async function getTabTree(windowId) {
+  try {
+    const tabs = await chrome.tabs.query({ windowId });
+    const byId = new Map(tabs.map(t => [t.id, t]));
+
+    const node = (t) => {
+      let host = "";
+      try { host = new URL(t.url).hostname.replace(/^www\./, ""); } catch {}
+      return { id: t.id, title: (t.title || host || "Untitled").slice(0, 90), host, children: [] };
+    };
+
+    const nodes = new Map(tabs.map(t => [t.id, node(t)]));
+    const roots = [];
+
+    for (const t of tabs) {
+      // A tab counts as a child only if its opener is still open in this
+      // window. Orphans (opener closed) become roots rather than vanishing.
+      const parent = t.openerTabId != null && byId.has(t.openerTabId)
+        ? nodes.get(t.openerTabId)
+        : null;
+      if (parent) parent.children.push(nodes.get(t.id));
+      else roots.push(nodes.get(t.id));
+    }
+
+    // Depth is capped when rendering, but compute the real one so the UI can
+    // show "+3 deeper" rather than silently truncating.
+    const depthOf = (n) => n.children.length ? 1 + Math.max(...n.children.map(depthOf)) : 1;
+    const maxDepth = roots.length ? Math.max(...roots.map(depthOf)) : 0;
+    const branching = roots.filter(r => r.children.length > 0).length;
+
+    return { ok: true, roots, maxDepth, branching, total: tabs.length };
+  } catch (err) {
+    console.warn("Stax: getTabTree failed", err);
+    return { ok: false, error: err.message };
+  }
+}

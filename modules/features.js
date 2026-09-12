@@ -418,12 +418,477 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     getTabHygiene(msg.windowId).then(sendResponse);
     return true;
   }
+  if (msg.type === "GET_ACCESSORIES") {
+    getAccessories().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "EQUIP_ACCESSORY") {
+    equipAccessory(msg.id).then(sendResponse);
+    return true;
+  }
+  // Bump usage counters when core actions complete so accessories unlock
+  // at the right time without the popup having to know about them.
+  if (msg.type === "BUMP_USAGE") {
+    bumpUsage(msg.key, msg.by || 1).then(r => sendResponse({ ok: true, newItems: r }));
+    return true;
+  }
   if (msg.type === "GET_RECENTLY_CLOSED") {
     getRecentlyClosed().then(tabs => sendResponse({ ok: true, tabs }));
     return true;
   }
   if (msg.type === "RESTORE_RECENTLY_CLOSED") {
     restoreRecentlyClosed(msg.sessionId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "MERGE_WINDOWS") {
+    mergeAllWindows().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "SPLIT_WINDOWS") {
+    splitIntoWindows(msg.windowId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "CLOSE_GROUP_TABS") {
+    closeGroupTabs(msg.groupId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "MOVE_GROUP_BY") {
+    moveGroupBy(msg.groupId, msg.direction).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_TAB_TREE") {
+    getTabTree(msg.windowId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_WEEKLY_DIGEST") {
+    getWeeklyDigest().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_SUGGESTED_RULES") {
+    getSuggestedRules().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "ACCEPT_SUGGESTED_RULE") {
+    acceptSuggestedRule(msg.domains, msg.name, msg.color).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "DISMISS_SUGGESTED_RULE") {
+    dismissSuggestedRule(msg.domains).then(sendResponse);
+    return true;
+  }
+});
+
+// ---- Points, levels, and accessories ----
+// Every meaningful interaction earns points, and accessories unlock at point
+// thresholds. This replaced a set of separate counters (sorts, dedupes,
+// sessions) each gating its own item: that meant someone who used one feature
+// heavily never unlocked anything, while the point pool rewards any use.
+// Points are awarded per action type, weighted by effort rather than
+// frequency, so spamming the cheapest button isn't the fastest route.
+const ACC_KEY = "stax_accessories";
+const USAGE_KEY = "stax_usage";
+
+const POINT_VALUES = {
+  sort: 10,          // the core action
+  ai_sort: 15,       // costs the user an API call, worth more
+  dedupe: 8,
+  suspend: 6,
+  focus: 5,
+  session_save: 12,
+  session_restore: 6,
+  archive: 8,
+  merge: 6,
+  split: 6,
+  export: 4,
+  chat: 5,           // talking to Stacklet
+  action_run: 10,    // approving one of his suggestions
+  poke: 1,           // capped in practice by the cooldown below
+  tutorial: 25,      // one-off, rewards finishing onboarding
+};
+
+// Levels are just labelled point bands. Kept generous early so the first
+// unlock lands in the first session, then widening so later ones feel earned.
+const LEVEL_THRESHOLDS = [0, 25, 75, 150, 275, 450, 700, 1000, 1400];
+
+function levelFor(points) {
+  let lvl = 1;
+  for (let i = 0; i < LEVEL_THRESHOLDS.length; i++) {
+    if (points >= LEVEL_THRESHOLDS[i]) lvl = i + 1;
+  }
+  return lvl;
+}
+
+function pointsForNextLevel(points) {
+  const next = LEVEL_THRESHOLDS.find(t => t > points);
+  return next == null ? null : next;
+}
+
+const ACCESSORY_DEFS = [
+  { id: "hat",        label: "Tiny Hat",   cost: 25 },
+  { id: "glasses",    label: "Glasses",    cost: 75 },
+  { id: "scarf",      label: "Scarf",      cost: 150 },
+  { id: "headphones", label: "Headphones", cost: 275 },
+  { id: "backpack",   label: "Backpack",   cost: 450 },
+  { id: "crown",      label: "Crown",      cost: 700 },
+  { id: "stars",      label: "Star Aura",  cost: 1000 },
+  { id: "cape",       label: "Cape",       cost: 1400 },
+];
+
+async function getUsage() {
+  const { [USAGE_KEY]: u } = await chrome.storage.sync.get([USAGE_KEY]);
+  return u || { points: 0, actions: 0, firstSeen: Date.now(), lastPoke: 0 };
+}
+
+// Awards points and returns anything newly unlocked, so the UI can show a
+// toast in the same interaction rather than on next open.
+async function awardPoints(kind, multiplier = 1) {
+  try {
+    const u = await getUsage();
+    const base = POINT_VALUES[kind] ?? 0;
+    if (!base) return { ok: true, gained: 0, newItems: [], usage: u };
+
+    // Poking is free entertainment, so it only pays out once a minute.
+    // Without this, holding down a click would farm every accessory.
+    if (kind === "poke") {
+      if (Date.now() - (u.lastPoke || 0) < 60000) {
+        return { ok: true, gained: 0, newItems: [], usage: u };
+      }
+      u.lastPoke = Date.now();
+    }
+
+    const before = u.points || 0;
+    const gained = Math.round(base * multiplier);
+    u.points = before + gained;
+    u.actions = (u.actions || 0) + 1;
+
+    const newItems = ACCESSORY_DEFS.filter(d => d.cost > before && d.cost <= u.points);
+    if (newItems.length) {
+      const { [ACC_KEY]: owned = [] } = await chrome.storage.sync.get([ACC_KEY]);
+      const ownedIds = new Set(owned.map(a => a.id));
+      const toAdd = newItems.filter(d => !ownedIds.has(d.id));
+      if (toAdd.length) {
+        await chrome.storage.sync.set({
+          [ACC_KEY]: [...owned, ...toAdd.map(d => ({ id: d.id, unlockedAt: Date.now() }))]
+        });
+      }
+    }
+
+    await chrome.storage.sync.set({ [USAGE_KEY]: u });
+    return {
+      ok: true,
+      gained,
+      points: u.points,
+      level: levelFor(u.points),
+      levelUp: levelFor(before) !== levelFor(u.points),
+      newItems,
+    };
+  } catch (err) {
+    console.warn("Stax: awardPoints failed", err);
+    return { ok: false, gained: 0, newItems: [] };
+  }
+}
+
+async function getAccessories() {
+  const u = await getUsage();
+  const { [ACC_KEY]: owned = [] } = await chrome.storage.sync.get([ACC_KEY]);
+  const { stackletAccessory = null } = await chrome.storage.sync.get(["stackletAccessory"]);
+  const ownedIds = new Set(owned.map(a => a.id));
+  const points = u.points || 0;
+  const nextAt = pointsForNextLevel(points);
+
+  return {
+    ok: true,
+    points,
+    level: levelFor(points),
+    nextLevelAt: nextAt,
+    progressToNext: nextAt ? Math.round(((points - (LEVEL_THRESHOLDS[levelFor(points) - 1] || 0)) / (nextAt - (LEVEL_THRESHOLDS[levelFor(points) - 1] || 0))) * 100) : 100,
+    equipped: stackletAccessory,
+    all: ACCESSORY_DEFS.map(d => ({
+      id: d.id,
+      label: d.label,
+      cost: d.cost,
+      unlocked: ownedIds.has(d.id) || points >= d.cost,
+      remaining: Math.max(0, d.cost - points),
+    })),
+  };
+}
+
+async function equipAccessory(id) {
+  if (id) {
+    const acc = await getAccessories();
+    const item = acc.all.find(a => a.id === id);
+    if (!item?.unlocked) return { ok: false, error: "not-unlocked" };
+  }
+  await chrome.storage.sync.set({ stackletAccessory: id || null });
+  return { ok: true };
+}
+
+
+// ---- Weekly digest ----
+// Rolls the stats already being collected into a readable summary. Generated
+// on demand rather than stored, so there's no second source of truth to keep
+// in sync with the raw per-day data.
+async function getWeeklyDigest() {
+  try {
+    const stats = await getTimeStats(7);
+    const usage = await getUsage();
+    const { [ARCHIVE_KEY]: archive = [] } = await chrome.storage.local.get([ARCHIVE_KEY]);
+    const { [SESSIONS_KEY]: sessions = [] } = await chrome.storage.local.get([SESSIONS_KEY]);
+
+    const weekAgo = Date.now() - 7 * 86400000;
+    const archivedThisWeek = archive.filter(a => a.archivedAt >= weekAgo).length;
+    const sessionsThisWeek = sessions.filter(s => s.savedAt >= weekAgo).length;
+
+    const busiest = (stats.perDay || []).reduce(
+      (best, d) => (d.total > (best?.total ?? -1) ? d : best), null);
+    const topCategory = (stats.totals || [])[0] || null;
+
+    // Compare the back half of the week against the front half. Anything
+    // shorter than a full week of data makes the trend meaningless, so it's
+    // reported as null rather than a misleading number.
+    const days = stats.perDay || [];
+    let trend = null;
+    if (days.length >= 6 && stats.grandTotal > 0) {
+      const half = Math.floor(days.length / 2);
+      const early = days.slice(0, half).reduce((a, d) => a + d.total, 0);
+      const late = days.slice(half).reduce((a, d) => a + d.total, 0);
+      if (early > 0) trend = Math.round(((late - early) / early) * 100);
+    }
+
+    return {
+      ok: true,
+      totalMs: stats.grandTotal || 0,
+      perDay: days,
+      categories: (stats.totals || []).slice(0, 5),
+      busiestDay: busiest?.day || null,
+      busiestMs: busiest?.total || 0,
+      topCategory: topCategory?.category || null,
+      archivedThisWeek,
+      sessionsThisWeek,
+      points: usage.points || 0,
+      level: levelFor(usage.points || 0),
+      trend,
+    };
+  } catch (err) {
+    console.warn("Stax: getWeeklyDigest failed", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// ---- Rules learned from behaviour ----
+// When the user manually drops two domains into the same group repeatedly,
+// that's a rule they're enacting by hand. This watches for the pattern and
+// offers to make it permanent, rather than requiring them to discover the
+// custom-rules editor.
+const COOCCUR_KEY = "stax_cooccurrence";
+const SUGGEST_THRESHOLD = 3;
+
+async function recordManualGrouping(groupId) {
+  try {
+    const tabs = await chrome.tabs.query({ groupId });
+    const group = await chrome.tabGroups.get(groupId);
+    const hosts = [...new Set(tabs.map(t => {
+      try { return new URL(t.url).hostname.replace(/^www\./, ""); } catch { return null; }
+    }).filter(Boolean))];
+    if (hosts.length < 2) return;
+
+    const { [COOCCUR_KEY]: data = {} } = await chrome.storage.local.get([COOCCUR_KEY]);
+
+    // Key on the sorted host pair so a,b and b,a are the same observation.
+    for (let i = 0; i < hosts.length; i++) {
+      for (let j = i + 1; j < hosts.length; j++) {
+        const key = [hosts[i], hosts[j]].sort().join("|");
+        const entry = data[key] || { count: 0, names: {} };
+        entry.count++;
+        if (group.title) entry.names[group.title] = (entry.names[group.title] || 0) + 1;
+        data[key] = entry;
+      }
+    }
+    await chrome.storage.local.set({ [COOCCUR_KEY]: data });
+  } catch (err) {
+    console.warn("Stax: recordManualGrouping failed", err);
+  }
+}
+
+// Returns pairs seen together often enough to be worth a rule, excluding
+// anything an existing rule already covers.
+async function getSuggestedRules() {
+  try {
+    const { [COOCCUR_KEY]: data = {} } = await chrome.storage.local.get([COOCCUR_KEY]);
+    const { customRules = [] } = await chrome.storage.sync.get(["customRules"]);
+    const covered = new Set(customRules.flatMap(r => r.domains || []));
+
+    const suggestions = Object.entries(data)
+      .filter(([, v]) => v.count >= SUGGEST_THRESHOLD)
+      .map(([key, v]) => {
+        const domains = key.split("|");
+        // Use the group name they picked most often for this pair.
+        const name = Object.entries(v.names).sort((a, b) => b[1] - a[1])[0]?.[0] || domains[0];
+        return { domains, name, count: v.count };
+      })
+      .filter(s => !s.domains.every(d => covered.has(d)))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return { ok: true, suggestions };
+  } catch (err) {
+    return { ok: false, suggestions: [] };
+  }
+}
+
+async function acceptSuggestedRule(domains, name, color = "cyan") {
+  try {
+    const { customRules = [] } = await chrome.storage.sync.get(["customRules"]);
+    customRules.push({ name, domains, color });
+    await chrome.storage.sync.set({ customRules });
+    // Forget the observation so it can't be suggested twice.
+    const { [COOCCUR_KEY]: data = {} } = await chrome.storage.local.get([COOCCUR_KEY]);
+    delete data[[...domains].sort().join("|")];
+    await chrome.storage.local.set({ [COOCCUR_KEY]: data });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+async function dismissSuggestedRule(domains) {
+  try {
+    const { [COOCCUR_KEY]: data = {} } = await chrome.storage.local.get([COOCCUR_KEY]);
+    delete data[[...domains].sort().join("|")];
+    await chrome.storage.local.set({ [COOCCUR_KEY]: data });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false };
+  }
+}
+
+// A group the user created or renamed by hand is the signal we learn from.
+// Stax-created groups are excluded: learning from our own output would
+// reinforce whatever the classifier already does.
+chrome.tabGroups.onUpdated.addListener(async (group) => {
+  try {
+    const { stax_recent_auto = [] } = await chrome.storage.session.get(["stax_recent_auto"]);
+    if (stax_recent_auto.includes(group.id)) return;
+    if (group.title) recordManualGrouping(group.id);
+  } catch { /* best effort */ }
+});
+
+// ---- Message routing ----
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "UNDO_LAST_ACTION") {
+    undoLastAction().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_UNDO_STATE") {
+    getUndoableAction().then(action => sendResponse({ available: !!action, type: action?.type || null }));
+    return true;
+  }
+  if (msg.type === "ARCHIVE_TABS") {
+    archiveTabs(msg.tabIds).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "ARCHIVE_STALE") {
+    archiveStaleTabs(msg.windowId, msg.days).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "LIST_ARCHIVE") {
+    listArchive().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "RESTORE_ARCHIVED") {
+    restoreArchived(msg.id, msg.keep).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "DELETE_ARCHIVED") {
+    deleteArchived(msg.id).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "CLEAR_ARCHIVE") {
+    clearArchive().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_TIME_STATS") {
+    getTimeStats(msg.days).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "RESET_TIME_STATS") {
+    resetTimeStats().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "ENTER_FOCUS") {
+    enterFocusMode(msg.windowId, { suspendOthers: msg.suspendOthers }).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "EXIT_FOCUS") {
+    exitFocusMode(msg.windowId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_FOCUS_STATE") {
+    getFocusState().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "EXPORT_MARKDOWN") {
+    exportWindowMarkdown(msg.windowId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_HYGIENE") {
+    getTabHygiene(msg.windowId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_ACCESSORIES") {
+    getAccessories().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "EQUIP_ACCESSORY") {
+    equipAccessory(msg.id).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "AWARD_POINTS") {
+    awardPoints(msg.kind, msg.multiplier).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_RECENTLY_CLOSED") {
+    getRecentlyClosed().then(tabs => sendResponse({ ok: true, tabs }));
+    return true;
+  }
+  if (msg.type === "RESTORE_RECENTLY_CLOSED") {
+    restoreRecentlyClosed(msg.sessionId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "MERGE_WINDOWS") {
+    mergeAllWindows().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "SPLIT_WINDOWS") {
+    splitIntoWindows(msg.windowId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "CLOSE_GROUP_TABS") {
+    closeGroupTabs(msg.groupId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "MOVE_GROUP_BY") {
+    moveGroupBy(msg.groupId, msg.direction).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_TAB_TREE") {
+    getTabTree(msg.windowId).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_WEEKLY_DIGEST") {
+    getWeeklyDigest().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "GET_SUGGESTED_RULES") {
+    getSuggestedRules().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "ACCEPT_SUGGESTED_RULE") {
+    acceptSuggestedRule(msg.domains, msg.name, msg.color).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "DISMISS_SUGGESTED_RULE") {
+    dismissSuggestedRule(msg.domains).then(sendResponse);
     return true;
   }
 });

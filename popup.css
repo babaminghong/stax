@@ -139,6 +139,21 @@ body {
   transition: background-color 0.25s ease;
 }
 
+/* Chrome hard-caps the popup at 600px tall. Without an explicit scroll
+   container, anything past that is simply unreachable. */
+.popup-container {
+  max-height: 580px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+.popup-container::-webkit-scrollbar { width: 7px; }
+.popup-container::-webkit-scrollbar-thumb {
+  background: var(--systemGrey5);
+  border-radius: 4px;
+}
+.popup-container::-webkit-scrollbar-track { background: transparent; }
+
 .popup-container { position: relative; z-index: 1; padding: 18px 16px 16px; }
 
 /* Full-bleed screen wrapper for top-level views (onboarding, settings) —
@@ -184,6 +199,8 @@ body {
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
+  /* Room for Stacklet's head, which sits above the logo mark. */
+  padding-top: 14px;
 }
 
 /* The logo mark doubles as Stacklet's perch. Giving it a real footprint
@@ -197,9 +214,11 @@ body {
 }
 .brand-mark {
   position: relative;
-  width: 40px;
+  width: 42px;
   height: 40px;
   flex-shrink: 0;
+  /* He overhangs the top of the mark by design, so nothing here may clip. */
+  overflow: visible;
 }
 .brand-mark-stack {
   position: absolute;
@@ -216,11 +235,23 @@ body {
   border-radius: 3px;
   transition: transform 0.3s var(--spring);
 }
-.brand-mark-stack i:nth-child(1) { bottom: 0;  width: 40px; background: var(--chip-purple-bg); }
-.brand-mark-stack i:nth-child(2) { bottom: 8px;  width: 33px; background: var(--chip-pink-bg); }
+.brand-mark-stack i {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.brand-mark-stack i:nth-child(1) { bottom: 0;  width: 42px; background: var(--chip-purple-bg); }
+.brand-mark-stack i:nth-child(2) { bottom: 8px;  width: 34px; background: var(--chip-pink-bg); }
 .brand-mark-stack i:nth-child(3) { bottom: 16px; width: 26px; background: var(--accent-yellow); }
-.brand:hover .brand-mark-stack i:nth-child(2) { transform: translateX(4px); }
-.brand:hover .brand-mark-stack i:nth-child(3) { transform: translateX(8px); }
+/* Hover fans the stack out slightly. Offsets are applied on top of the
+   centring translate, so they have to restate it. */
+.brand:hover .brand-mark-stack i:nth-child(2) { transform: translateX(calc(-50% + 3px)); }
+.brand:hover .brand-mark-stack i:nth-child(3) { transform: translateX(calc(-50% + 6px)); }
+/* He sits on the top bar, so when that bar slides he has to slide with it
+   or he ends up standing on air. Same offset, same easing. */
+.stacklet.perched {
+  transition: transform 0.3s var(--spring);
+}
+.brand:hover .stacklet.perched { transform: translateX(6px) translateY(-1px); }
 
 .header-actions {
   display: flex;
@@ -1156,14 +1187,15 @@ body {
 }
 
 /* ================= Stacklet, the character ================= */
-/* Built as layered SVG parts rather than one flat drawing so each piece
-   (eyes, arms, feet, spark) can animate independently. State is driven by a
-   class on the wrapper: idle, sleeping, walking, working. */
+/* Animation is driven by a state class on .stacklet: idle, sleeping,
+   waking, walking, working, celebrate. Each limb group animates on its own
+   timing so motion carries lag and overshoot instead of everything moving
+   as one rigid block. */
 
 .stacklet {
   position: relative;
-  width: 52px;
-  height: 58px;
+  width: 58px;
+  height: 64px;
   flex-shrink: 0;
   cursor: pointer;
   user-select: none;
@@ -1171,112 +1203,230 @@ body {
 }
 .stacklet svg { width: 100%; height: 100%; overflow: visible; display: block; }
 
-/* Perched on the logo mark in the header. Slightly oversized and nudged up
-   so he reads as sitting on top of the stack rather than floating beside it. */
 .stacklet.perched {
   position: absolute;
-  width: 34px;
-  height: 38px;
-  top: -12px;
-  left: 12px;
+  width: 40px;
+  height: 40px;
+  top: -16px;
+  left: 50%;
+  margin-left: -20px;
   z-index: 3;
 }
 
-.stk-body { transform-origin: 50% 100%; transform-box: fill-box; }
-.stk-arm-l, .stk-arm-r { transform-origin: 90% 10%; transform-box: fill-box; }
-.stk-foot-l, .stk-foot-r { transform-origin: 50% 50%; transform-box: fill-box; }
-.stk-spark { transform-origin: center; transform-box: fill-box; }
-.stk-eye-open, .stk-eye-shut, .stk-zzz { transition: opacity 0.2s ease; }
-.stk-eye-shut, .stk-zzz { opacity: 0; }
+/* Transform origins set so rotation pivots where a joint would actually be,
+   not at the centre of each shape's bounding box. */
+.stk-all      { transform-box: fill-box; transform-origin: 50% 92%; }
+.stk-body     { transform-box: fill-box; transform-origin: 50% 100%; }
+.stk-antenna  { transform-box: fill-box; transform-origin: 22% 100%; }
+.stk-arm-l    { transform-box: fill-box; transform-origin: 50% 18%; }
+.stk-arm-r    { transform-box: fill-box; transform-origin: 50% 18%; }
+.stk-foot-l, .stk-foot-r { transform-box: fill-box; transform-origin: 50% 50%; }
+.stk-orb      { transform-box: fill-box; transform-origin: center; }
+.stk-shadow   { transform-box: fill-box; transform-origin: center; }
+.stk-crest    { transform-box: fill-box; transform-origin: 50% 100%; }
 
-/* --- idle: gentle breathing bob + occasional blink --- */
-.stacklet.idle .stk-all { animation: stkBob 3.4s ease-in-out infinite; }
-.stacklet.idle .stk-eye-open { animation: stkBlink 5.2s infinite; }
-@keyframes stkBob {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-2.5px); }
+/* default visibility: open eyes, no sleep or celebration artwork */
+.stk-eyes-shut, .stk-zzz, .stk-celebrate-fx, .stk-trail { opacity: 0; }
+.stk-eyes-open { opacity: 1; }
+
+/* ---- idle ---- */
+.stacklet.idle .stk-all     { animation: stkBreathe 3.6s ease-in-out infinite; }
+.stacklet.idle .stk-shadow  { animation: stkShadowBreathe 3.6s ease-in-out infinite; }
+.stacklet.idle .stk-antenna { animation: stkAntennaSway 3.6s ease-in-out infinite; }
+.stacklet.idle .stk-eyes-open { animation: stkBlink 5.4s infinite; }
+.stacklet.idle .stk-orb     { animation: stkOrbPulse 2.8s ease-in-out infinite; }
+
+@keyframes stkBreathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50%      { transform: translateY(-2.5px) scale(0.995, 1.008); }
+}
+@keyframes stkShadowBreathe {
+  0%, 100% { transform: scale(1); opacity: 0.16; }
+  50%      { transform: scale(0.92); opacity: 0.11; }
+}
+/* The antenna trails a beat behind the body. This offset is the whole
+   reason the character reads as having weight. */
+@keyframes stkAntennaSway {
+  0%, 100% { transform: rotate(0deg); }
+  35%      { transform: rotate(-4.5deg); }
+  70%      { transform: rotate(2.5deg); }
 }
 @keyframes stkBlink {
-  0%, 93%, 100% { transform: scaleY(1); }
-  96%           { transform: scaleY(0.08); }
+  0%, 94%, 100% { transform: scaleY(1); }
+  96.5%         { transform: scaleY(0.06); }
 }
-.stk-eye-open { transform-origin: center; transform-box: fill-box; }
-
-/* --- sleeping: slumped, eyes shut, Zzz drifting up --- */
-.stacklet.sleeping .stk-all { animation: stkSleepBreathe 4.2s ease-in-out infinite; }
-.stacklet.sleeping .stk-eye-open { opacity: 0; }
-.stacklet.sleeping .stk-eye-shut { opacity: 1; }
-.stacklet.sleeping .stk-zzz { opacity: 1; animation: stkZzz 2.6s ease-in-out infinite; }
-.stacklet.sleeping .stk-spark { opacity: 0.15; }
-@keyframes stkSleepBreathe {
-  0%, 100% { transform: translateY(1px) scale(1, 0.985); }
-  50%      { transform: translateY(3px) scale(1.01, 1); }
-}
-@keyframes stkZzz {
-  0%   { opacity: 0;   transform: translate(0, 2px) scale(0.7); }
-  35%  { opacity: 0.9; }
-  100% { opacity: 0;   transform: translate(5px, -12px) scale(1.15); }
+.stk-eyes-open { transform-box: fill-box; transform-origin: center; }
+@keyframes stkOrbPulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.14); opacity: 0.82; }
 }
 
-/* --- waking: a startled pop, played once on click --- */
-.stacklet.waking .stk-all { animation: stkWake 0.55s var(--spring) both; }
+/* ---- sleeping ---- */
+.stacklet.sleeping .stk-all       { animation: stkSleep 4.6s ease-in-out infinite; }
+.stacklet.sleeping .stk-eyes-open { opacity: 0; }
+.stacklet.sleeping .stk-eyes-shut { opacity: 1; }
+.stacklet.sleeping .stk-antenna   { transform: rotate(16deg); }
+.stacklet.sleeping .stk-orb       { opacity: 0.3; }
+.stacklet.sleeping .stk-crest     { transform: translateY(1.5px) scaleY(0.94); }
+.stacklet.sleeping .stk-zzz       { opacity: 1; }
+.stacklet.sleeping .stk-z1        { animation: stkZdrift 2.8s ease-out infinite; }
+.stacklet.sleeping .stk-z2        { animation: stkZdrift 2.8s ease-out 0.7s infinite; }
+
+@keyframes stkSleep {
+  0%, 100% { transform: translateY(2px) scale(1.005, 0.982); }
+  50%      { transform: translateY(4px) scale(1.015, 0.995); }
+}
+@keyframes stkZdrift {
+  0%   { opacity: 0;   transform: translate(0, 4px) scale(0.65) rotate(-8deg); }
+  30%  { opacity: 0.9; }
+  100% { opacity: 0;   transform: translate(8px, -14px) scale(1.2) rotate(8deg); }
+}
+
+/* ---- waking: anticipation dip, then an overshooting pop ---- */
+.stacklet.waking .stk-all     { animation: stkWake 0.66s cubic-bezier(.34,1.56,.64,1) both; }
+.stacklet.waking .stk-antenna { animation: stkAntennaWake 0.66s cubic-bezier(.34,1.56,.64,1) both; }
 @keyframes stkWake {
-  0%   { transform: translateY(2px) scale(1, 0.94); }
-  35%  { transform: translateY(-7px) scale(0.95, 1.09); }
-  70%  { transform: translateY(0) scale(1.04, 0.97); }
+  0%   { transform: translateY(3px) scale(1.04, 0.9); }
+  30%  { transform: translateY(-9px) scale(0.93, 1.12); }
+  62%  { transform: translateY(1px) scale(1.03, 0.97); }
   100% { transform: translateY(0) scale(1, 1); }
 }
+@keyframes stkAntennaWake {
+  0%   { transform: rotate(16deg); }
+  35%  { transform: rotate(-22deg); }
+  70%  { transform: rotate(8deg); }
+  100% { transform: rotate(0deg); }
+}
 
-/* --- walking: squash-stretch bob with alternating feet and swinging arms --- */
-.stacklet.walking .stk-all  { animation: stkWalkBob 0.34s ease-in-out infinite; }
-.stacklet.walking .stk-foot-l { animation: stkStepA 0.34s ease-in-out infinite; }
-.stacklet.walking .stk-foot-r { animation: stkStepB 0.34s ease-in-out infinite; }
-.stacklet.walking .stk-arm-l  { animation: stkSwingA 0.34s ease-in-out infinite; }
-.stacklet.walking .stk-arm-r  { animation: stkSwingB 0.34s ease-in-out infinite; }
+/* ---- walking ---- */
+.stacklet.walking .stk-all     { animation: stkWalkBob 0.42s ease-in-out infinite; }
+.stacklet.walking .stk-shadow  { animation: stkWalkShadow 0.42s ease-in-out infinite; }
+.stacklet.walking .stk-foot-l  { animation: stkFootA 0.42s ease-in-out infinite; }
+.stacklet.walking .stk-foot-r  { animation: stkFootB 0.42s ease-in-out infinite; }
+.stacklet.walking .stk-arm-l   { animation: stkArmA 0.42s ease-in-out infinite; }
+.stacklet.walking .stk-arm-r   { animation: stkArmB 0.42s ease-in-out infinite; }
+.stacklet.walking .stk-antenna { animation: stkAntennaWalk 0.42s ease-in-out infinite; }
+
 @keyframes stkWalkBob {
-  0%, 100% { transform: translateY(0) scale(1, 1); }
-  50%      { transform: translateY(-2.5px) scale(0.985, 1.015); }
+  0%, 100% { transform: translateY(0)      rotate(-1.2deg); }
+  25%      { transform: translateY(-3px)   rotate(0deg); }
+  50%      { transform: translateY(0)      rotate(1.2deg); }
+  75%      { transform: translateY(-3px)   rotate(0deg); }
 }
-@keyframes stkStepA {
-  0%, 100% { transform: translate(0, 0); }
-  50%      { transform: translate(2.5px, -2px); }
+@keyframes stkWalkShadow {
+  0%, 50%, 100% { transform: scale(1);    opacity: 0.16; }
+  25%, 75%      { transform: scale(0.88); opacity: 0.1; }
 }
-@keyframes stkStepB {
-  0%, 100% { transform: translate(2.5px, -2px); }
-  50%      { transform: translate(0, 0); }
-}
-@keyframes stkSwingA {
-  0%, 100% { transform: rotate(16deg); }
-  50%      { transform: rotate(-16deg); }
-}
-@keyframes stkSwingB {
-  0%, 100% { transform: rotate(-16deg); }
-  50%      { transform: rotate(16deg); }
-}
+@keyframes stkFootA { 0%,100% { transform: translate(3px, -1px); } 50% { transform: translate(-3px, 1px); } }
+@keyframes stkFootB { 0%,100% { transform: translate(-3px, 1px); } 50% { transform: translate(3px, -1px); } }
+/* Arms overshoot slightly past the leg cycle, which is what real
+   counter-swing looks like. */
+@keyframes stkArmA { 0%,100% { transform: rotate(-14deg); } 55% { transform: rotate(14deg); } }
+@keyframes stkArmB { 0%,100% { transform: rotate(14deg); } 55% { transform: rotate(-14deg); } }
+@keyframes stkAntennaWalk { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 
-/* --- working: the "light speed" state. Lean forward, blur the trail,
-       crank the spark. Used while an action is actually executing. --- */
-.stacklet.working .stk-all { animation: stkWalkBob 0.12s ease-in-out infinite; }
-.stacklet.working .stk-foot-l { animation: stkStepA 0.12s linear infinite; }
-.stacklet.working .stk-foot-r { animation: stkStepB 0.12s linear infinite; }
-.stacklet.working .stk-body { transform: rotate(-9deg); }
-.stacklet.working .stk-spark { animation: stkSparkSpin 0.5s linear infinite; }
-.stacklet.working .stk-trail { opacity: 1; animation: stkTrail 0.3s linear infinite; }
-@keyframes stkSparkSpin {
-  0%   { transform: rotate(0deg) scale(1); }
-  100% { transform: rotate(360deg) scale(1.25); }
+/* ---- working: the light-speed state ---- */
+.stacklet.working .stk-all     { animation: stkWorkBob 0.16s linear infinite; }
+.stacklet.working .stk-body    { transform: rotate(-10deg); }
+.stacklet.working .stk-foot-l  { animation: stkFootA 0.16s linear infinite; }
+.stacklet.working .stk-foot-r  { animation: stkFootB 0.16s linear infinite; }
+.stacklet.working .stk-arm-l   { transform: rotate(-34deg); }
+.stacklet.working .stk-arm-r   { transform: rotate(-26deg); }
+.stacklet.working .stk-antenna { animation: stkAntennaWhip 0.16s linear infinite; }
+.stacklet.working .stk-orb     { animation: stkOrbSpin 0.5s linear infinite; }
+.stacklet.working .stk-trail   { opacity: 1; animation: stkTrail 0.28s linear infinite; }
+.stacklet.working .stk-shadow  { transform: scale(1.1, 0.8); opacity: 0.1; }
+
+@keyframes stkWorkBob {
+  0%, 100% { transform: translateY(0)    rotate(-2deg); }
+  50%      { transform: translateY(-2px) rotate(-2deg); }
 }
-.stk-trail { opacity: 0; }
+@keyframes stkAntennaWhip { 0%,100% { transform: rotate(-26deg); } 50% { transform: rotate(-14deg); } }
+@keyframes stkOrbSpin {
+  0%   { transform: rotate(0deg)   scale(1.1); }
+  100% { transform: rotate(360deg) scale(1.35); }
+}
 @keyframes stkTrail {
-  0%   { opacity: 0.55; transform: translateX(0); }
-  100% { opacity: 0;    transform: translateX(-12px); }
+  0%   { opacity: 0.75; transform: translateX(2px); }
+  100% { opacity: 0;    transform: translateX(-14px); }
 }
 
-/* --- the walking track ---
-   Stacklet used to own a 76px row above the chat, which ate most of the
-   visible history in a popup this size. He's now an overlay along the
-   bottom edge of the log itself: no layout cost, and he walks in front of
-   the conversation instead of beside it. */
+/* ---- celebrate: anticipation crouch, big jump, settle ---- */
+.stacklet.celebrate .stk-all        { animation: stkCelebrate 0.92s cubic-bezier(.3,1.5,.6,1) both; }
+.stacklet.celebrate .stk-shadow     { animation: stkCelebShadow 0.92s ease-out both; }
+.stacklet.celebrate .stk-arm-l      { animation: stkCelebArmL 0.92s cubic-bezier(.3,1.5,.6,1) both; }
+.stacklet.celebrate .stk-arm-r      { animation: stkCelebArmR 0.92s cubic-bezier(.3,1.5,.6,1) both; }
+.stacklet.celebrate .stk-antenna    { animation: stkAntennaWake 0.92s cubic-bezier(.3,1.6,.6,1) both; }
+.stacklet.celebrate .stk-celebrate-fx { animation: stkCelebFx 0.92s ease-out both; }
+
+@keyframes stkCelebrate {
+  0%   { transform: translateY(0)     scale(1, 1); }
+  14%  { transform: translateY(3px)   scale(1.08, 0.88); }
+  42%  { transform: translateY(-18px) scale(0.9, 1.16); }
+  70%  { transform: translateY(0)     scale(1.06, 0.93); }
+  86%  { transform: translateY(-3px)  scale(0.99, 1.02); }
+  100% { transform: translateY(0)     scale(1, 1); }
+}
+@keyframes stkCelebShadow {
+  0%   { transform: scale(1);     opacity: 0.16; }
+  42%  { transform: scale(0.6);   opacity: 0.06; }
+  70%  { transform: scale(1.12);  opacity: 0.2; }
+  100% { transform: scale(1);     opacity: 0.16; }
+}
+@keyframes stkCelebArmL {
+  0% { transform: rotate(0deg); } 40% { transform: rotate(-125deg); } 100% { transform: rotate(0deg); }
+}
+@keyframes stkCelebArmR {
+  0% { transform: rotate(0deg); } 40% { transform: rotate(125deg); } 100% { transform: rotate(0deg); }
+}
+@keyframes stkCelebFx {
+  0%   { opacity: 0; transform: scale(0.4); }
+  35%  { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+
+/* ---- sitting: the perched pose ----
+   On the logo he sits rather than stands, with feet swung forward over the
+   edge and the body settled down onto it. Without this he looked like he was
+   standing on top of the mark, which read as balancing rather than perching. */
+.stacklet.perched .stk-foot-l { transform: translate(-1px, 3.5px) rotate(-14deg); }
+.stacklet.perched .stk-foot-r { transform: translate(1px, 3.5px) rotate(14deg); }
+.stacklet.perched .stk-body   { transform: translateY(2px); }
+.stacklet.perched .stk-arm-l  { transform: translate(1.5px, 2px) rotate(12deg); }
+.stacklet.perched .stk-arm-r  { transform: translate(-1.5px, 2px) rotate(-12deg); }
+.stacklet.perched .stk-shadow { opacity: 0; }
+
+/* Legs swing gently while he sits, like someone dangling them off a ledge. */
+.stacklet.perched.idle .stk-foot-l { animation: stkDangleA 2.6s ease-in-out infinite; }
+.stacklet.perched.idle .stk-foot-r { animation: stkDangleB 2.6s ease-in-out infinite; }
+@keyframes stkDangleA {
+  0%, 100% { transform: translate(-1px, 3.5px) rotate(-14deg); }
+  50%      { transform: translate(-2px, 2.5px) rotate(-22deg); }
+}
+@keyframes stkDangleB {
+  0%, 100% { transform: translate(1px, 3.5px) rotate(14deg); }
+  50%      { transform: translate(2px, 2.5px) rotate(22deg); }
+}
+
+/* ---- accessory secondary motion ---- */
+.stk-cape, .stk-scarf-tail { transform-box: fill-box; }
+.stk-cape { transform-origin: 50% 8%; }
+.stk-scarf-tail { transform-origin: 60% 5%; }
+.stacklet.walking .stk-cape,
+.stacklet.working .stk-cape { animation: stkCapeFlap 0.5s ease-in-out infinite; }
+.stacklet.walking .stk-scarf-tail,
+.stacklet.working .stk-scarf-tail { animation: stkScarfFlap 0.42s ease-in-out infinite; }
+@keyframes stkCapeFlap  { 0%,100% { transform: skewX(-5deg); } 50% { transform: skewX(6deg); } }
+@keyframes stkScarfFlap { 0%,100% { transform: rotate(-9deg); } 50% { transform: rotate(11deg); } }
+.stk-stars { transform-box: fill-box; transform-origin: center; animation: stkStarTwinkle 3.2s ease-in-out infinite; }
+@keyframes stkStarTwinkle { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .stacklet * { animation: none !important; }
+}
+
+/* ---- walking track, footprints, speech bubble ---- */
 .chat-wrap { position: relative; }
 
 .stacklet-stage {
@@ -1284,85 +1434,107 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 44px;
+  height: 48px;
   pointer-events: none;
-  /* Deliberately not overflow:hidden. The speech bubble is a child and sits
-     above the strip, so clipping here would cut it off entirely. Footprint
-     and walk positions are clamped in JS instead. */
 }
 .stacklet-stage .stacklet {
   position: absolute;
-  bottom: 2px;
+  bottom: 0;
   left: 0;
-  width: 34px;
-  height: 38px;
+  width: 38px;
+  height: 42px;
   pointer-events: auto;
-  /* Transform (not `left`) so the browser can composite the walk on the GPU
-     instead of reflowing the whole card every frame. */
   transform: translateX(0);
   transition: transform 0.9s cubic-bezier(0.37, 0, 0.24, 1);
 }
 .stacklet-stage .stacklet.flipped svg { transform: scaleX(-1); }
 .stacklet-stage .stacklet.dash { transition-duration: 0.34s; }
 
-/* Footprints drop behind him as he walks and fade on their own. Capped in
-   JS so they can never accumulate into a trail across the whole strip. */
 .stk-footprint {
   position: absolute;
-  bottom: 3px;
+  bottom: 2px;
   width: 5px;
   height: 3px;
   border-radius: 50%;
   background: var(--tertiaryLabel);
-  opacity: 0.45;
+  opacity: 0.4;
   animation: footFade 1.6s ease-out forwards;
   pointer-events: none;
 }
 @keyframes footFade {
-  0%   { opacity: 0.45; transform: scale(1); }
-  100% { opacity: 0;    transform: scale(0.6); }
+  0%   { opacity: 0.4; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(0.55); }
 }
 
-/* Leave room at the bottom of the log so the last message never sits
-   underneath him. */
-.chat-log { padding-bottom: 46px; }
+.chat-log { padding-bottom: 50px; }
 
-/* --- speech bubble --- */
+/* Bubble is a child of .stacklet, anchored above and centred on him, so it
+   rides along with his transform automatically. Nothing to keep in sync.
+   The counter-scaleX cancels the parent's flip when he walks left, otherwise
+   the text would render mirrored. */
 .stacklet-bubble {
   position: absolute;
-  bottom: 42px;
-  left: 0;
-  max-width: 215px;
+  bottom: calc(100% - 4px);
+  left: 50%;
+  width: max-content;
+  max-width: 190px;
   background: var(--card-bg-solid);
   border: 1px solid var(--separator);
-  border-radius: 14px;
-  padding: 9px 12px;
-  font-size: 12px;
-  line-height: 1.45;
+  border-radius: 13px;
+  padding: 8px 11px;
+  font-size: 11.5px;
+  line-height: 1.42;
   color: var(--label);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   opacity: 0;
-  transform: translateY(6px) scale(0.96);
-  transform-origin: 20px 100%;
-  transition: opacity 0.22s ease, transform 0.28s var(--spring);
+  transform: translateX(-50%) translateY(5px) scale(0.94);
+  transform-origin: 50% 100%;
+  transition: opacity 0.2s ease, transform 0.26s var(--spring);
   pointer-events: none;
-  z-index: 5;
+  z-index: 8;
 }
-.stacklet-bubble.show { opacity: 1; transform: translateY(0) scale(1); }
+.stacklet-bubble.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+/* Tail points down at him, centred under the bubble. */
 .stacklet-bubble::after {
   content: "";
   position: absolute;
-  bottom: -6px;
-  left: 18px;
-  width: 11px;
-  height: 11px;
+  bottom: -5px;
+  left: 50%;
+  margin-left: -5px;
+  width: 10px;
+  height: 10px;
   background: var(--card-bg-solid);
   border-right: 1px solid var(--separator);
   border-bottom: 1px solid var(--separator);
   transform: rotate(45deg);
 }
 
-/* Blinking caret while text types itself in */
+/* Near a stage edge the bubble would overflow, so it re-anchors to whichever
+   side has room. The tail follows so it still points at him. */
+.stacklet.bubble-right .stacklet-bubble {
+  left: 0;
+  transform: translateX(0) translateY(5px) scale(0.94);
+  transform-origin: 16px 100%;
+}
+.stacklet.bubble-right .stacklet-bubble.show { transform: translateX(0) translateY(0) scale(1); }
+.stacklet.bubble-right .stacklet-bubble::after { left: 16px; }
+
+.stacklet.bubble-left .stacklet-bubble {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(5px) scale(0.94);
+  transform-origin: calc(100% - 16px) 100%;
+}
+.stacklet.bubble-left .stacklet-bubble.show { transform: translateX(0) translateY(0) scale(1); }
+.stacklet.bubble-left .stacklet-bubble::after { left: auto; right: 16px; margin-left: 0; }
+
+/* When he faces left the whole SVG is scaleX(-1). The bubble is a sibling of
+   that SVG, not inside it, so it is unaffected. Text stays readable. */
+.stacklet.flipped .stacklet-bubble { transform-origin: 50% 100%; }
+
 .type-caret {
   display: inline-block;
   width: 2px;
@@ -1374,7 +1546,448 @@ body {
 }
 @keyframes caretBlink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
 
+/* ================= Insights (time tracking) ================= */
+.insights-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 48px;
+  margin-bottom: 10px;
+}
+.insights-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  justify-content: flex-end;
+}
+.insights-bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent-yellow);
+  min-height: 2px;
+  transition: height 0.6s var(--ease-out);
+}
+.insights-bar-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--tertiaryLabel);
+  text-align: center;
+}
+.insights-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.insights-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.insights-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.insights-cat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.insights-time {
+  font-size: 11.5px;
+  color: var(--secondaryLabel);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ================= Archive (read-later) ================= */
+.archive-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.archive-item:hover { background: var(--systemGrey5); }
+.archive-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.archive-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.archive-date {
+  font-size: 10.5px;
+  color: var(--tertiaryLabel);
+  white-space: nowrap;
+}
+
+/* ================= Stacklet mood states ================= */
+/* Body tint shifts with hygiene so the colour carries emotional weight
+   even when the character is too small to read the mouth clearly. */
+/* Mood tint. Applied as a filter on the whole character rather than by
+   overriding a gradient stop: gradient ids are unique per instance now
+   (three copies of Stacklet can be mounted at once), so an id selector
+   could never reach all of them. hue-rotate keeps the shading intact. */
+.stacklet { transition: filter 0.6s ease; }
+.stacklet.mood-happy    { filter: none; }
+.stacklet.mood-neutral  { filter: saturate(0.55) brightness(0.98); }
+.stacklet.mood-stressed { filter: hue-rotate(-22deg) saturate(1.15); }
+.stacklet.mood-buried   { filter: hue-rotate(-38deg) saturate(1.3) brightness(0.94); }
+
+/* ================= Accessories panel ================= */
+.accessories-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.accessory-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s var(--ease-out);
+  position: relative;
+}
+.accessory-chip.locked {
+  opacity: 0.4;
+  cursor: default;
+  filter: grayscale(0.6);
+}
+.accessory-chip.equipped {
+  border-color: var(--accent-yellow);
+  background: var(--systemGrey5);
+}
+.accessory-chip:not(.locked):hover { transform: translateY(-2px); border-color: var(--separator); }
+.accessory-icon { font-size: 20px; line-height: 1; }
+.accessory-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--secondaryLabel);
+  text-align: center;
+  line-height: 1.2;
+}
+.accessory-chip.locked .accessory-label::after { content: " 🔒"; }
+.accessory-chip.equipped .accessory-label { color: var(--label); }
+
+/* unlock toast: slides up from the bottom, sits for two seconds, fades */
+.unlock-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--card-bg-solid);
+  border: 1px solid var(--accent-yellow);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--label);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  z-index: 99;
+  white-space: nowrap;
+  transition: transform 0.4s var(--spring), opacity 0.4s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.unlock-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* ================= Dashboard redesign ================= */
+
+/* Hero Smart Sort button */
+.dash-hero { margin-bottom: 10px; }
+.dash-hero-btn {
+  height: 56px !important;
+  border-radius: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 0 18px !important;
+  text-align: left !important;
+}
+.dash-hero-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
+.dash-hero-text { display: flex; flex-direction: column; gap: 1px; }
+.dash-hero-label { font-size: 14px; font-weight: 800; }
+.dash-hero-sub { font-size: 11px; font-weight: 500; opacity: 0.75; }
+
+/* Live stat strip */
+.stat-strip {
+  display: flex;
+  align-items: center;
+  background: var(--systemGrey6);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  gap: 0;
+}
+.stat-strip-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.stat-strip-num {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--label);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.stat-strip-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--tertiaryLabel);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.stat-strip-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* Section headers (label + right-aligned actions) */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.section-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tertiaryLabel);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.section-actions { display: flex; gap: 6px; }
+
+/* Small pill button for section-level actions */
+.pill-btn {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--systemGrey5);
+  color: var(--secondaryLabel);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s var(--ease-out);
+}
+.pill-btn:hover { background: var(--systemGrey6); color: var(--label); transform: translateY(-1px); }
+.pill-btn:active { transform: translateY(0) scale(0.96); }
+
+/* Groups list without a card wrapper */
+.card-bare {
+  margin-bottom: 4px;
+}
+
+/* 4-column icon+label tool grid */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  margin-bottom: 4px;
+}
+.tool-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 11px 4px 9px;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.18s var(--ease-out);
+}
+.tool-tile:hover { background: var(--systemGrey5); border-color: var(--separator); transform: translateY(-2px); }
+.tool-tile:active { transform: translateY(0) scale(0.95); }
+.tool-tile.active { background: var(--accent-yellow); border-color: var(--accent-yellow); }
+.tool-tile.active .tool-tile-label { color: var(--accent-ink); }
+.tool-tile-icon { font-size: 18px; line-height: 1; }
+.tool-tile-label { font-size: 9.5px; font-weight: 700; color: var(--secondaryLabel); text-align: center; line-height: 1.2; }
+
+/* Collapsible inbox panels */
+.inbox-group {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.inbox-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--card-bg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+.inbox-row:last-of-type { border-bottom: none; }
+.inbox-row:hover { background: var(--systemGrey5); }
+.inbox-icon { font-size: 14px; }
+.inbox-label { font-size: 13px; font-weight: 700; color: var(--label); flex: 1; }
+.inbox-count {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tertiaryLabel);
+  background: var(--systemGrey5);
+  border-radius: 8px;
+  padding: 1px 7px;
+  min-width: 20px;
+  text-align: center;
+}
+.inbox-chevron {
+  font-size: 10px;
+  color: var(--tertiaryLabel);
+  transition: transform 0.2s var(--ease-out);
+}
+.inbox-row.open .inbox-chevron { transform: rotate(90deg); }
+.inbox-body {
+  background: var(--card-bg);
+  padding: 6px 10px 10px;
+  border-top: 1px solid var(--border);
+  animation: inboxExpand 0.28s var(--ease-out) both;
+}
+@keyframes inboxExpand {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Stats view */
+.stats-week-header { text-align: center; padding: 10px 0 16px; }
+.stats-week-total { font-size: 32px; font-weight: 900; color: var(--label); line-height: 1; }
+.stats-week-sub { font-size: 12px; color: var(--tertiaryLabel); margin-top: 4px; }
+
+.stat-now-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.stat-now-tile {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 6px 10px;
+  text-align: center;
+}
+.stat-now-num { font-size: 20px; font-weight: 900; color: var(--label); line-height: 1; }
+.stat-now-label { font-size: 9.5px; font-weight: 700; color: var(--tertiaryLabel); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* ================= Icon system ================= */
+/* Icons inherit colour from their parent and align optically rather than on
+   the text baseline, which is what emoji got wrong: they always sat a couple
+   of pixels low and carried their own colour. */
+.icn {
+  display: block;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+[data-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.mood-face { color: var(--label); }
+.stat-strip-face, .stat-now-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+}
+
+/* Nav tab icons pick up the active colour automatically */
+.nav-tab-glyph { display: inline-flex; align-items: center; }
+.nav-tab .icn { width: 15px; height: 15px; }
+
+/* Tool tile icons: slightly heavier stroke reads better at small size */
+.tool-tile-icon { color: var(--secondaryLabel); }
+.tool-tile:hover .tool-tile-icon { color: var(--label); }
+.tool-tile.active .tool-tile-icon { color: var(--accent-ink); }
+
+.inbox-icon { color: var(--secondaryLabel); display: inline-flex; }
+.icon-btn .icn { width: 16px; height: 16px; }
+.ai-spark { display: inline-flex; align-items: center; }
+.ai-spark .icn { width: 14px; height: 14px; }
+.dash-hero-icon { color: var(--accent-ink); }
+.dash-hero-icon .icn { width: 20px; height: 20px; }
+
+/* Group badge holds either a vector or two-letter initials */
+.group-badge .icn { width: 13px; height: 13px; }
+.badge-initials {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Unlock toast now contains an icon + text */
+.unlock-toast {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.unlock-toast .icn { color: var(--accent-yellow); }
+
+/* Accessory previews are inline SVG, so give them a consistent box */
+.accessory-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+}
+.accessory-icon svg { display: block; }
+
+/* ================= Typographic polish ================= */
+/* Tighter tracking on large weights and tabular figures everywhere a number
+   updates live, so digits stop jittering as values change. */
+.title, .dash-hero-label, .stats-week-total, .stat-now-num, .stat-strip-num {
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stats-week-total { letter-spacing: -0.035em; }
+.section-title { font-feature-settings: "ss01"; }
+
 /* ================= Tutorial overlay ================= */
+/* Restored: this block was lost when the Stacklet animation CSS was
+   rebuilt, which left the overlay rendering inline in document flow with
+   no display:none, so it appeared permanently above the whole UI. */
 .tutorial-overlay {
   position: fixed;
   inset: 0;
@@ -1383,9 +1996,9 @@ body {
 }
 .tutorial-overlay.show { display: block; }
 
-/* The spotlight is one absolutely-positioned box with a huge outward
-   box-shadow. That dims everything outside it without needing a second
-   masking layer or clip-path, and it animates smoothly between targets. */
+/* One absolutely-positioned box with a huge outward box-shadow. That dims
+   everything outside it without a second masking layer, and animates
+   smoothly between targets. */
 .tutorial-spotlight {
   position: absolute;
   border-radius: 12px;
@@ -1414,7 +2027,7 @@ body {
   border: 1px solid var(--separator);
   border-radius: 16px;
   padding: 14px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.32);
   z-index: 92;
   animation: riseIn 0.32s var(--ease-out) both;
 }
@@ -1435,10 +2048,17 @@ body {
   font-size: 10.5px;
   font-weight: 800;
   color: var(--tertiaryLabel);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   margin-bottom: 4px;
 }
-.tutorial-nav { display: flex; gap: 8px; align-items: center; }
+/* Row, not a stack. The buttons were rendering vertically because this
+   rule was missing entirely. */
+.tutorial-nav {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+}
 .tutorial-nav .btn { flex: 1; height: 36px; font-size: 12.5px; }
 .tutorial-skip {
   background: transparent;
@@ -1450,10 +2070,10 @@ body {
   cursor: pointer;
   padding: 8px 10px;
   border-radius: 9px;
+  flex-shrink: 0;
 }
 .tutorial-skip:hover { color: var(--label); background: var(--systemGrey5); }
 
-/* Progress pips */
 .tutorial-pips { display: flex; gap: 5px; justify-content: center; margin-top: 11px; }
 .tutorial-pip {
   width: 5px;
@@ -1464,3 +2084,188 @@ body {
 }
 .tutorial-pip.done { background: var(--tertiaryLabel); }
 .tutorial-pip.active { background: var(--accent-yellow); width: 16px; border-radius: 3px; }
+
+/* The perched Stacklet's bubble hangs below him instead of above, since he
+   sits at the very top of the popup with no room overhead. */
+.perched-bubble {
+  bottom: auto !important;
+  top: calc(100% + 6px);
+  left: 0 !important;
+  transform: translateX(0) translateY(-5px) scale(0.94) !important;
+  transform-origin: 14px 0 !important;
+  max-width: 200px;
+  z-index: 30;
+}
+.perched-bubble.show { transform: translateX(0) translateY(0) scale(1) !important; }
+/* Tail flips to point up at him */
+.perched-bubble::after {
+  bottom: auto;
+  top: -5px;
+  left: 14px;
+  margin-left: 0;
+  border-right: none;
+  border-bottom: none;
+  border-left: 1px solid var(--separator);
+  border-top: 1px solid var(--separator);
+}
+
+/* ================= Level / points ================= */
+.level-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 6px;
+}
+.level-badge {
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  color: var(--accent-ink);
+  background: var(--accent-yellow);
+  border-radius: 7px;
+  padding: 3px 7px;
+  flex-shrink: 0;
+}
+.level-bar-wrap {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--systemGrey5);
+  overflow: hidden;
+}
+.level-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: var(--gradient-ai);
+  transition: width 0.7s var(--ease-out);
+}
+.level-points {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--secondaryLabel);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.level-hint {
+  font-size: 11px;
+  color: var(--tertiaryLabel);
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+/* Locked accessories show what they cost rather than just a padlock, so the
+   shelf reads as a goal list instead of a wall. */
+.accessory-cost {
+  font-size: 8.5px;
+  font-weight: 800;
+  color: var(--tertiaryLabel);
+  letter-spacing: 0.02em;
+}
+.accessory-chip.locked { opacity: 0.5; cursor: default; filter: grayscale(0.5); }
+.accessory-chip.locked .accessory-icon { opacity: 0.45; }
+
+/* Floating "+10" that rises off the point counter when you earn something */
+.point-pop {
+  position: fixed;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--chip-green-ink);
+  pointer-events: none;
+  z-index: 99;
+  animation: pointPop 1.1s var(--ease-out) forwards;
+}
+@keyframes pointPop {
+  0%   { opacity: 0; transform: translateY(4px) scale(0.8); }
+  25%  { opacity: 1; transform: translateY(-4px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-24px) scale(1); }
+}
+
+/* Armed state for the two-press group close. Turning it red on the first
+   press is the whole confirmation affordance: no dialog, but no accident
+   either. */
+.btn-icon-small.armed {
+  background: var(--chip-red-bg) !important;
+  color: var(--chip-red-ink) !important;
+  animation: armedPulse 0.9s ease-in-out infinite;
+}
+@keyframes armedPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.14); }
+}
+
+/* Group action rows hold six buttons now, so they need to stay compact. */
+.group-actions { gap: 1px; }
+.group-actions .btn-icon-small { width: 21px; height: 21px; font-size: 11px; }
+.group-actions .btn-icon-small:hover { transform: none; background: var(--systemGrey5); }
+
+/* ================= Weekly digest ================= */
+.digest-body { display: flex; flex-direction: column; gap: 7px; }
+.digest-line {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--label);
+  line-height: 1.4;
+}
+.digest-key { color: var(--tertiaryLabel); flex-shrink: 0; }
+.digest-val { font-weight: 800; font-variant-numeric: tabular-nums; }
+.digest-trend-up   { color: var(--chip-red-ink); font-weight: 800; }
+.digest-trend-down { color: var(--chip-green-ink); font-weight: 800; }
+.digest-trend-flat { color: var(--tertiaryLabel); font-weight: 700; }
+
+/* ================= Tab tree ================= */
+.tab-tree {
+  max-height: 230px;
+  overflow-y: auto;
+  font-size: 11.5px;
+}
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+.tree-node:hover { background: var(--systemGrey5); }
+/* Indent guides make the parent-child relationship readable without needing
+   connecting lines drawn in SVG. */
+.tree-node[data-depth="1"] { margin-left: 14px; }
+.tree-node[data-depth="2"] { margin-left: 28px; }
+.tree-node[data-depth="3"] { margin-left: 42px; }
+.tree-branch {
+  color: var(--tertiaryLabel);
+  font-size: 10px;
+  flex-shrink: 0;
+  width: 9px;
+}
+.tree-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--label);
+}
+.tree-host { color: var(--tertiaryLabel); font-size: 10px; flex-shrink: 0; }
+.tree-more {
+  font-size: 10.5px;
+  color: var(--tertiaryLabel);
+  padding: 3px 6px 3px 42px;
+  font-style: italic;
+}
+
+/* ================= Suggested rules ================= */
+.suggest-card {
+  border: 1px solid var(--accent-yellow);
+  border-radius: 12px;
+  padding: 10px 11px;
+  margin-bottom: 9px;
+  background: var(--card-bg);
+}
+.suggest-text { font-size: 12px; color: var(--label); line-height: 1.45; margin-bottom: 8px; }
+.suggest-domains { font-weight: 800; }
+.suggest-btns { display: flex; gap: 7px; }
+.suggest-btns .btn { flex: 1; height: 30px; font-size: 11.5px; }

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Stax - Tab Engine",
+  "name": "__MSG_extName__",
   "version": "1.4.0",
-  "description": "Smart tab organization powered by local rules and optional AI.",
+  "description": "__MSG_extDesc__",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -41,7 +41,41 @@
         "default": "Alt+S",
         "mac": "Command+Shift+S"
       },
-      "description": "Trigger Stax local tab sorting"
+      "description": "__MSG_cmdQuickSort__"
+    },
+    "quick-find": {
+      "suggested_key": {
+        "default": "Alt+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Open Stax quick tab search"
+    },
+    "toggle-focus": {
+      "suggested_key": {
+        "default": "Alt+D",
+        "mac": "Command+Shift+D"
+      },
+      "description": "Toggle Stax focus mode"
+    },
+    "dedupe-tabs": {
+      "suggested_key": {
+        "default": "Alt+X",
+        "mac": "Command+Shift+X"
+      },
+      "description": "Close duplicate tabs"
+    },
+    "suspend-inactive": {
+      "description": "Suspend inactive tabs"
+    },
+    "save-session": {
+      "description": "Save current tabs as a session"
+    },
+    "archive-stale": {
+      "description": "Archive stale tabs to Read Later"
+    },
+    "undo-last": {
+      "description": "Undo the last Stax action"
     }
-  }
+  },
+  "default_locale": "en"
 }

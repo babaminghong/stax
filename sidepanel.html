@@ -5,37 +5,99 @@
   <link rel="stylesheet" href="popup.css" />
   <style>
     body { width: 100% !important; min-height: 100vh; }
-    .sidepanel-container { padding: 20px; }
+    .sidepanel-container { padding: 16px; }
+    .sp-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .sp-brand { min-width: 0; flex: 1; }
+    .sp-title { font-size: 15px; font-weight: 800; color: var(--label); }
+    .sp-sub { font-size: 11.5px; color: var(--tertiaryLabel); }
+    .sp-stacklet-wrap {
+      position: relative;
+      height: 54px;
+      margin-bottom: 4px;
+    }
+    .sp-stacklet-wrap .stacklet-stage {
+      position: absolute;
+      inset: 0;
+      height: 54px;
+    }
+    .sp-bubble {
+      position: absolute;
+      left: 0;
+      bottom: 52px;
+      max-width: 220px;
+      background: var(--card-bg-solid);
+      border: 1px solid var(--separator);
+      border-radius: 12px;
+      padding: 7px 10px;
+      font-size: 11.5px;
+      color: var(--label);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      opacity: 0;
+      transform: translateY(4px) scale(0.96);
+      transform-origin: 16px 100%;
+      transition: opacity 0.2s ease, transform 0.24s var(--spring);
+      pointer-events: none;
+      z-index: 5;
+    }
+    .sp-bubble.show { opacity: 1; transform: translateY(0) scale(1); }
+    .sp-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -5px;
+      left: 14px;
+      width: 9px;
+      height: 9px;
+      background: var(--card-bg-solid);
+      border-right: 1px solid var(--separator);
+      border-bottom: 1px solid var(--separator);
+      transform: rotate(45deg);
+    }
   </style>
 </head>
 <body>
   <div class="sidepanel-container">
-    <div class="header">
-      <div>
-        <div class="title">Stax Sidebar ⚡</div>
-        <div class="subtitle">Live Tab Group Navigator</div>
+    <div class="sp-header">
+      <div class="brand-mark" style="position:relative; width:36px; height:36px; flex-shrink:0;">
+        <div class="brand-mark-stack"><i></i><i></i><i></i></div>
       </div>
-      <span class="badge">SidePanel</span>
+      <div class="sp-brand">
+        <div class="sp-title">Stax</div>
+        <div class="sp-sub">Live Tab Navigator</div>
+      </div>
+      <button id="spQuickSort" class="btn btn-primary" style="font-size:12px; height:34px; padding:0 12px; gap:5px;"><span data-icon="bolt" data-icon-size="14"></span>Sort</button>
+    </div>
+
+    <!-- Stacklet walks along this strip in the side panel -->
+    <div class="sp-stacklet-wrap">
+      <div class="stacklet-stage" id="spStage">
+        <div class="stacklet idle" id="spFigure">
+          <div class="stacklet-bubble sp-bubble" id="spBubble"></div>
+        </div>
+      </div>
     </div>
 
     <div id="statusBanner" class="status-banner"></div>
 
-    <!-- Live Controls -->
-    <div class="card space-y">
+    <div class="card space-y" style="margin-top:8px;">
       <div class="grid-2">
-        <button id="spQuickSort" class="btn btn-primary">⚡ Organize Window</button>
-        <button id="spUngroupAll" class="btn btn-secondary">Ungroup All</button>
+        <button id="spUngroupAll" class="btn btn-secondary" style="font-size:12px;">Ungroup All</button>
+        <button id="spFocus" class="btn btn-secondary" style="font-size:12px;">Focus Mode</button>
       </div>
     </div>
 
-    <!-- Group Tree View Container -->
     <div class="card" id="groupTreeContainer">
       <div class="label">Active Groups</div>
-      <div id="treeView" class="groups-container" style="margin-top: 8px;">
-        Loading active tab groups...
+      <div id="treeView" class="groups-container" style="margin-top:8px;">
+        Loading...
       </div>
     </div>
   </div>
+  <script src="browser-polyfill.js"></script>
   <script src="shared.js"></script>
   <script src="sidepanel.js"></script>
 </body>

@@ -19,6 +19,8 @@ function friendlyAiError(rawError) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  hydrateIcons();
+  localizeDom();
   const versionBadge = document.getElementById("versionBadge");
   if (versionBadge) versionBadge.textContent = `v${chrome.runtime.getManifest().version}`;
 
@@ -150,6 +152,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     mainScreen.style.display = "none";
     settingsScreen.style.display = "block";
     initSettingsScreen();
+    loadSuggestedRules();
   });
   document.getElementById("settingsBack")?.addEventListener("click", () => {
     settingsScreen.style.display = "none";
@@ -165,12 +168,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await sendMessage({ type: "SMART_SORT", windowId });
       if (res?.ok) {
         const suffix = res.aiUsed ? " (AI covered the rest)" : "";
-        showStatus(`Created ${res.groupsCreated} group(s)${suffix}.`, "ok");
-        if (res.groupsCreated > 0) showUndoBanner("Sort made some changes.");
+        showStatus(t("sortedGroups", res.groupsCreated) + suffix, "ok");
+        if (res.groupsCreated > 0) {
+          showUndoBanner("Sort made some changes.");
+          earn("sort");
+          [document.getElementById("stackletFigure"), document.getElementById("perchedStacklet")]
+            .forEach(el => { if (el) celebrateStacklet(el); });
+          stackletReact(`Sorted into ${res.groupsCreated} group${res.groupsCreated === 1 ? "" : "s"}!`);
+        }
       } else {
-        showStatus("Sort failed, try again.", "error");
+        showStatus(t("sortFailed"), "error");
       }
       loadActiveGroups();
+      syncStackletMood();
     });
     btn.disabled = false;
   });
@@ -179,16 +189,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btn = e.currentTarget;
     btn.disabled = true;
     const originalHtml = btn.innerHTML;
-    btn.innerHTML = `<span class="ai-spark">✨</span>&nbsp;Thinking…`;
+    btn.innerHTML = `<span class="ai-spark">${icon("sparkle", 14)}</span>&nbsp;Thinking\u2026`;
     await withCurrentWindow(async (windowId) => {
       const res = await sendMessage({ type: "AI_SORT", windowId });
       if (!res) {
         showStatus("No response from background worker.", "error");
       } else if (res.ok) {
         showStatus(`AI created ${res.groupsCreated} group(s).`, "ok");
+        if (res.groupsCreated > 0) earn("ai_sort");
         if (res.groupsCreated > 0) showUndoBanner("AI sort made some changes.");
       } else if (res.error === "no-key") {
-        showStatus("No API key set. Open Settings to add one.", "error");
+        showStatus(t("noApiKey"), "error");
       } else {
         showStatus(friendlyAiError(res.error), "error");
       }
@@ -209,9 +220,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const res = await sendMessage({ type: "REMOVE_DUPLICATES" });
     if (res?.ok) {
       showStatus(`Closed ${res.removed} duplicate tab(s).`, "ok");
-      if (res.removed > 0) showUndoBanner("Closed some duplicate tabs.");
+      if (res.removed > 0) {
+        showUndoBanner("Closed some duplicate tabs.");
+        earn("dedupe");
+        stackletReact(`Cleared ${res.removed} duplicate${res.removed === 1 ? "" : "s"}.`);
+      }
     }
     loadActiveGroups();
+    syncStackletMood();
   });
 
   document.getElementById("createGroupBtn")?.addEventListener("click", async () => {
@@ -229,7 +245,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (res?.ok) {
       showStatus(res.type === "dedupe" ? "Duplicate tabs reopened." : "Sort undone.", "ok");
     } else {
-      showStatus("Nothing left to undo.", "error");
+      showStatus(t("nothingToUndo"), "error");
     }
     loadActiveGroups();
   });
@@ -241,6 +257,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await sendMessage({ type: "SUSPEND_INACTIVE", windowId });
       if (res?.ok) {
         showStatus(res.suspended > 0 ? `Suspended ${res.suspended} inactive tab(s).` : "No inactive tabs to suspend right now.", "ok");
+        if (res.suspended > 0) earn("suspend");
       } else {
         showStatus("Couldn't suspend tabs, try again.", "error");
       }
@@ -268,6 +285,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await sendMessage({ type: "SAVE_SESSION", windowId, name });
       if (res?.ok) {
         showStatus(`Saved "${res.session.name}" (${res.session.tabCount} tabs).`, "ok");
+        earn("session_save");
         sessionNameInput.value = "";
         sessionSaveRow.style.display = "none";
         loadSessions();
@@ -280,14 +298,171 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   loadSessions();
+  // loadRecentlyClosed and loadArchive are now lazy — they run when the
+  // user opens the inbox accordion, so we only hit the API when needed.
+  syncStackletMood();
+  document.getElementById("archiveCurrentBtn")?.addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) return;
+    const res = await sendMessage({ type: "ARCHIVE_TABS", tabIds: [tab.id] });
+    if (res?.ok) {
+      showStatus("Saved to Read Later.", "ok");
+      window.close();
+    } else {
+      showStatus("Can't archive that tab.", "error");
+    }
+  });
+
+  // ---- Focus mode ----
+  let focusActive = false;
+  async function syncFocusBtn() {
+    const res = await sendMessage({ type: "GET_FOCUS_STATE" });
+    focusActive = !!res?.active;
+    const tile = document.getElementById("focusBtn");
+    if (tile) tile.classList.toggle("active", focusActive);
+  }
+  document.getElementById("focusBtn")?.addEventListener("click", async () => {
+    await withCurrentWindow(async (windowId) => {
+      if (focusActive) {
+        const res = await sendMessage({ type: "EXIT_FOCUS", windowId });
+        showStatus(res?.ok ? "Focus mode off." : "Nothing to exit.", res?.ok ? "ok" : "error");
+      } else {
+        const res = await sendMessage({ type: "ENTER_FOCUS", windowId, suspendOthers: false });
+        showStatus(res?.ok ? `Collapsed ${res.collapsed} group(s). You're in focus.` : "Focus failed.", res?.ok ? "ok" : "error");
+        if (res?.ok) earn("focus");
+      }
+    });
+    syncFocusBtn();
+    loadActiveGroups();
+  });
+
+  // ---- Archive stale tabs ----
+  document.getElementById("archiveStaleBtn")?.addEventListener("click", async () => {
+    await withCurrentWindow(async (windowId) => {
+      const res = await sendMessage({ type: "ARCHIVE_STALE", windowId, days: 7 });
+      if (res?.ok) {
+        showStatus(res.archived > 0 ? `Archived ${res.archived} stale tab(s) to Read Later.` : "No stale tabs found.", "ok");
+        if (res.archived > 0) earn("archive");
+        if (res.archived > 0) showUndoBanner("Stale tabs archived.");
+      } else {
+        showStatus(res?.error === "no-activity-data" ? "No activity data yet. Use Stax for a bit first." : "Archive failed.", "error");
+      }
+    });
+  });
+
+  // ---- Merge / split windows ----
+  document.getElementById("mergeWindowsBtn")?.addEventListener("click", async () => {
+    const res = await sendMessage({ type: "MERGE_WINDOWS" });
+    showStatus(res?.ok ? (res.merged > 0 ? `Merged ${res.merged} tab(s) into one window.` : "Already in one window.") : "Merge failed.", res?.ok ? "ok" : "error");
+    if (res?.merged > 0) earn("merge");
+    loadActiveGroups();
+  });
+  document.getElementById("splitWindowsBtn")?.addEventListener("click", async () => {
+    await withCurrentWindow(async (windowId) => {
+      const res = await sendMessage({ type: "SPLIT_WINDOWS", windowId });
+      showStatus(res?.ok ? `Split into ${res.created} window(s).` : "No groups to split. Sort first.", res?.ok ? "ok" : "error");
+      if (res?.ok) earn("split");
+    });
+  });
+
+  // ---- Markdown export ----
+  document.getElementById("exportMdBtn")?.addEventListener("click", async () => {
+    await withCurrentWindow(async (windowId) => {
+      const res = await sendMessage({ type: "EXPORT_MARKDOWN", windowId });
+      if (res?.ok) {
+        await navigator.clipboard.writeText(res.markdown).catch(() => {});
+        showStatus(`${res.count} tabs copied as markdown.`, "ok");
+        earn("export");
+      } else {
+        showStatus("Nothing to export.", "error");
+      }
+    });
+  });
+
+  // ---- Archive / Read Later panel ----
+  // Archive is now accessible via the Read Later inbox accordion
+
+  // ---- Stat strip ----
+  async function refreshStatStrip() {
+    try {
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!activeTab?.windowId) return;
+      const hyg = await sendMessage({ type: "GET_HYGIENE", windowId: activeTab.windowId });
+      if (!hyg?.ok) return;
+      const pct = hyg.tabCount ? Math.round(hyg.groupedRatio * 100) : 0;
+      const el = (id) => document.getElementById(id);
+      if (el("stripTabCount"))   el("stripTabCount").textContent   = hyg.tabCount;
+      if (el("stripGroupCount")) el("stripGroupCount").textContent = hyg.groupCount;
+      if (el("stripGroupedPct")) el("stripGroupedPct").textContent = pct + "%";
+      if (el("stripMoodIcon")) el("stripMoodIcon").innerHTML = moodFace(hyg.mood, 22);
+    } catch { /* cosmetic */ }
+  }
+  refreshStatStrip();
+  setInterval(refreshStatStrip, 15000);
+
+  // ---- Inbox accordion toggles ----
+  function setupInboxToggle(btnId, bodyId, loaderFn) {
+    const btn  = document.getElementById(btnId);
+    const body = document.getElementById(bodyId);
+    if (!btn || !body) return;
+    btn.addEventListener("click", async () => {
+      const open = btn.classList.toggle("open");
+      body.style.display = open ? "block" : "none";
+      if (open) {
+        if (loaderFn) await loaderFn();
+        // Wait for the expand animation to establish the real height before
+        // scrolling, otherwise we scroll to where it *was*.
+        requestAnimationFrame(() => {
+          btn.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      }
+    });
+  }
+  setupInboxToggle("toggleSessions",  "sessionsList",       loadSessions);
+  setupInboxToggle("toggleReadLater", "archiveBody",        loadArchive);
+  setupInboxToggle("toggleRecent",    "recentlyClosedList", loadRecentlyClosed);
+  setupInboxToggle("toggleAccessories", "accessoriesBody",  loadAccessories);
+
+  async function refreshInboxCounts() {
+    try {
+      const [sessRes, archRes, recRes] = await Promise.all([
+        sendMessage({ type: "LIST_SESSIONS" }),
+        sendMessage({ type: "LIST_ARCHIVE" }),
+        sendMessage({ type: "GET_RECENTLY_CLOSED" }),
+      ]);
+      const el = (id) => document.getElementById(id);
+      if (el("sessionsCount")) el("sessionsCount").textContent = sessRes?.sessions?.length || 0;
+      if (el("archiveCount"))  el("archiveCount").textContent  = Array.isArray(archRes) ? archRes.length : 0;
+      if (el("recentCount"))   el("recentCount").textContent   = recRes?.tabs?.length || 0;
+    } catch { /* cosmetic */ }
+  }
+  refreshInboxCounts();
+  syncFocusBtn();
+  syncStackletMood();
+
+  // Published so the live-sync listeners (module scope) can call back into
+  // these, which are closures over elements resolved here.
+  window.__staxRefreshStrip = refreshStatStrip;
+  window.__staxRefreshCounts = refreshInboxCounts;
+  attachLiveSync();
+
+  // A keyboard shortcut may have asked for a specific view.
+  try {
+    const { stax_open_view } = await chrome.storage.session.get(["stax_open_view"]);
+    if (stax_open_view) {
+      await chrome.storage.session.remove(["stax_open_view"]);
+      switchView(stax_open_view);
+    }
+  } catch { /* session storage may be unavailable */ }
 
   // ---- View switching. Dashboard, Stacklet, and Find are views inside the
   // main screen rather than separate pages, so the header and tabs stay put
   // instead of the whole popup swapping out from under you.
   const views = {
     dashboard: document.getElementById("dashboardView"),
-    stacklet: document.getElementById("stackletView"),
-    search: document.getElementById("searchView")
+    stacklet:  document.getElementById("stackletView"),
+    search:    document.getElementById("searchView"),
+    stats:     document.getElementById("statsView"),
   };
   const navTabs = document.getElementById("navTabs");
 
@@ -298,6 +473,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     navTabs?.querySelectorAll(".nav-tab").forEach(t => t.classList.toggle("active", t.dataset.view === name));
     if (name === "stacklet") initStacklet();
     if (name === "search") openPaletteScreen();
+    if (name === "stats") loadStatsView();
   }
   window.__staxSwitchView = switchView;
 
@@ -309,12 +485,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   const perched = document.getElementById("perchedStacklet");
   if (perched) {
     perched.innerHTML = stackletSvg();
+    const pokeLines = [
+      "Hey! Need a hand with those tabs?",
+      "Poke me again and I'll sort everything.",
+      "I'm watching your tab count. It's fine. Mostly.",
+      "Tap the Stacklet tab and we can talk properly.",
+    ];
+    let pokes = 0;
     perched.addEventListener("click", () => {
-      if (perched.classList.contains("sleeping")) wakeStacklet(perched);
-      else {
-        // Already awake, so a poke just sends him to his own tab.
-        switchView("stacklet");
+      if (perched.classList.contains("sleeping")) {
+        wakeStacklet(perched);
+        perchedSay("Oh! I dozed off.");
+        return;
       }
+      pokes++;
+      // Third poke takes the hint and opens his tab.
+      if (pokes >= 3) { switchView("stacklet"); pokes = 0; return; }
+      perchedSay(pokeLines[pokes % pokeLines.length]);
+      earn("poke");
     });
     registerIdleSleeper(perched);
   }
@@ -326,6 +514,7 @@ function showUndoBanner(text) {
   if (!banner || !textEl) return;
   textEl.textContent = text;
   banner.style.display = "flex";
+  banner.dataset.real = "1";
   clearTimeout(showUndoBanner._t);
   // Undo only stays useful for a couple minutes server-side (see
   // UNDO_WINDOW_MS in background.js), hide the banner well before that
@@ -335,7 +524,7 @@ function showUndoBanner(text) {
 
 function hideUndoBanner() {
   const banner = document.getElementById("undoBanner");
-  if (banner) banner.style.display = "none";
+  if (banner) { banner.style.display = "none"; delete banner.dataset.real; }
 }
 
 // ---- Saved sessions ----
@@ -358,13 +547,13 @@ async function loadSessions() {
       item.className = "group-item";
       item.innerHTML = `
         <div style="display:flex; align-items:center; min-width: 0;">
-          <span class="group-badge group-badge-grey">📁</span>
+          <span class="group-badge group-badge-grey">${icon("folder", 13)}</span>
           <span class="group-name">${escapeHtml(s.name)}</span>
           <span class="group-count">${s.tabCount}</span>
         </div>
         <div style="display:flex; gap: 4px; flex-shrink: 0;">
-          <button class="btn-icon-small session-restore" title="Reopen (saved ${dateStr})">↩</button>
-          <button class="btn-icon-small session-delete" title="Delete">✕</button>
+          <button class="btn-icon-small session-restore" title="Reopen (saved ${dateStr})">${icon("undo", 12)}</button>
+          <button class="btn-icon-small session-delete" title="Delete">${icon("close", 12)}</button>
         </div>
       `;
       item.querySelector(".session-restore").addEventListener("click", async () => {
@@ -448,7 +637,7 @@ async function openPaletteScreen() {
     if (!query) return;
     aiBtn.disabled = true;
     const originalHtml = aiBtn.innerHTML;
-    aiBtn.innerHTML = `<span class="ai-spark">✨</span>&nbsp;Asking AI…`;
+    aiBtn.innerHTML = `<span class="ai-spark">${icon("sparkle", 14)}</span>&nbsp;Asking AI\u2026`;
     const res = await sendMessage({ type: "AI_SEARCH_TABS", windowId, query });
     aiBtn.disabled = false;
     aiBtn.innerHTML = originalHtml;
@@ -529,7 +718,7 @@ function initOnboardingWizard(onboardScreen, mainScreen, settingsScreen) {
       d.classList.toggle("active", i === current);
     });
     backBtn.style.display = current === 0 ? "none" : "flex";
-    nextBtn.textContent = current === steps.length - 1 ? "Get Started 🚀" : "Continue";
+    nextBtn.textContent = current === steps.length - 1 ? "Get Started" : "Continue";
     nextBtn.disabled = !isStepAnswered(steps[current]);
     hint.textContent = steps[current].querySelector(".chip-grid").dataset.mode === "multi"
       ? "Tap all the ones that fit, you can change these later in Settings."
@@ -631,7 +820,7 @@ async function loadActiveGroups() {
           <span class="group-name">${escapeHtml(g.title || "Unnamed Group")}</span>
           <span class="group-count">${tabsInGroup.length}</span>
         </div>
-        <button class="btn-icon-small" title="Ungroup" data-group-id="${g.id}">✕</button>
+        <button class="btn-icon-small" title="Ungroup" data-group-id="${g.id}">${icon("close", 12)}</button>
       `;
       item.querySelector("button").addEventListener("click", async (e) => {
         const groupId = Number(e.currentTarget.dataset.groupId);
@@ -828,6 +1017,7 @@ function appendActionProposal(action, windowId) {
     const res = await sendMessage({ type: "STACKLET_RUN_ACTION", action, windowId });
     card.classList.add("resolved");
     btns.innerHTML = `<span class="action-resolved-note">${res?.ok ? escapeHtml(res.detail || "Done") : "Couldn't run that"}</span>`;
+    if (res?.ok) earn("action_run");
     loadActiveGroups();
   });
 
@@ -895,6 +1085,7 @@ async function sendToStacklet(message) {
 
   appendChatMessage(res.reply, "bot");
   stackletHistory.push({ role: "assistant", text: res.reply });
+  earn("chat");
 
   for (const action of res.actions || []) {
     if (res.autoRun) {
@@ -903,7 +1094,7 @@ async function sendToStacklet(message) {
       // always a visible trail of what Stacklet did on its own.
       const runRes = await sendMessage({ type: "STACKLET_RUN_ACTION", action, windowId });
       appendChatMessage(
-        runRes?.ok ? `✓ ${action.label}, ${runRes.detail || "done"}` : `✗ Couldn't run: ${action.label}`,
+        runRes?.ok ? `\u2713 ${action.label}, ${runRes.detail || "done"}` : `\u2717 Couldn't run: ${action.label}`,
         "system"
       );
       loadActiveGroups();
@@ -953,6 +1144,8 @@ async function initStacklet() {
     const { stackletAutoRun = false } = await chrome.storage.sync.get(["stackletAutoRun"]);
     if (stackletAutoRun) stackletSay("Auto-run is on, so I'll just get on with things.");
     else stackletSay("Hey! Ask me anything about your tabs.");
+    await syncStackletMood();
+    loadAccessories();
     if (log && !log.children.length) {
       appendChatMessage(
         stackletAutoRun
@@ -1037,14 +1230,20 @@ function trailFootprints(fromX, toX, durationMs) {
   }
 }
 
-// Keeps the bubble beside him instead of pinned to the left edge, and stops
-// it running off the right side when he's walked far over.
+// The bubble is a child of the figure now, so it follows him with no work.
+// All that's left is picking which side to anchor on when he's close enough
+// to a stage edge that a centred bubble would overflow.
 function positionBubble() {
-  const bubble = document.getElementById("stackletBubble");
+  const figure = document.getElementById("stackletFigure");
   const stage = document.getElementById("stackletStage");
-  if (!bubble || !stage) return;
-  const maxLeft = Math.max(0, stage.clientWidth - bubble.offsetWidth - 4);
-  bubble.style.left = `${Math.min(stackletX, maxLeft)}px`;
+  const bubble = document.getElementById("stackletBubble");
+  if (!figure || !stage || !bubble) return;
+
+  const half = bubble.offsetWidth / 2;
+  const centre = stackletX + figure.offsetWidth / 2;
+  figure.classList.remove("bubble-left", "bubble-right");
+  if (centre - half < 2) figure.classList.add("bubble-right");
+  else if (centre + half > stage.clientWidth - 2) figure.classList.add("bubble-left");
 }
 
 const typeTimers = new WeakMap();
@@ -1078,9 +1277,29 @@ async function stackletSay(text, { hold = 3200 } = {}) {
   positionBubble();
   bubble.classList.add("show");
   await typeInto(bubble, text);
-  positionBubble(); // width changed as it typed, so re-clamp against the edge
+  positionBubble(); // width changed while typing, so re-check the edge
   clearTimeout(stackletSay._t);
   stackletSay._t = setTimeout(() => bubble.classList.remove("show"), hold);
+}
+
+// Speaks from the Stacklet perched on the logo. Used for reactions that
+// should be visible from the dashboard, where the chat bubble is off-screen.
+async function perchedSay(text, { hold = 3400 } = {}) {
+  const bubble = document.getElementById("perchedBubble");
+  const figure = document.getElementById("perchedStacklet");
+  if (!bubble || !figure) return;
+  wakeStacklet(figure);
+  bubble.classList.add("show");
+  await typeInto(bubble, text, 16);
+  clearTimeout(perchedSay._t);
+  perchedSay._t = setTimeout(() => bubble.classList.remove("show"), hold);
+}
+
+// Reacts on whichever Stacklet the user can currently see.
+function stackletReact(text) {
+  const stackletTabOpen = document.getElementById("stackletView")?.style.display === "block";
+  if (stackletTabOpen) stackletSay(text);
+  else perchedSay(text);
 }
 
 // Sends Stacklet dashing across his strip and back. Used while an action is
@@ -1132,44 +1351,116 @@ function stackletStroll() {
 // Each step names a real element by id. The spotlight measures that element
 // live rather than storing coordinates, so it stays correct no matter how the
 // layout reflows between popup sizes or themes.
+// Each step names a real element by id and, optionally, a view to switch to
+// first. The spotlight measures the live element rather than storing
+// coordinates, so steps stay correct if the layout reflows.
 const TUTORIAL_STEPS = [
   {
-    target: null,
-    text: "Hi, I'm Stacklet! I live up on the logo. Let me show you around, it only takes a minute."
+    target: null, view: "dashboard",
+    text: "Hi, I'm Stacklet! I live up on the logo. Let me walk you through everything, it takes about a minute."
   },
   {
-    target: "navTabs",
-    text: "These three tabs are the whole app. Tabs is your dashboard, Stacklet is me, and Find jumps you to any open tab."
+    target: "perchedStacklet", view: "dashboard",
+    text: "That's me. Poke me any time and I'll say something. Poke me three times and I'll open my own tab."
   },
   {
-    target: "quickSort",
-    text: "Smart Sort is the main one. It sorts every open tab into colour-coded groups using local rules, instantly and offline."
+    target: "navTabs", view: "dashboard",
+    text: "Four tabs run the whole app. Tabs is your dashboard, Stacklet is me, Find jumps to any open tab, Stats shows where your time went."
   },
   {
-    target: "dedupe",
-    text: "Close Duplicates clears out repeated tabs across every window. If it closes something you wanted, Undo brings it straight back."
+    target: "quickSort", view: "dashboard",
+    text: "Smart Sort is the main one. It sorts every tab into colour-coded groups using local rules, instantly and offline. AI only touches what the rules can't place."
   },
   {
-    target: "suspendInactive",
-    text: "Suspend Inactive frees the memory used by tabs you haven't touched in a while. They reload the moment you click back in."
+    target: "statStrip", view: "dashboard",
+    text: "Live numbers: how many tabs you have, how many groups, what share is grouped, and my mood. I get visibly stressed past about 35 tabs."
   },
   {
-    target: "saveSessionBtn",
-    text: "Save Session snapshots your tabs and their groups. Close everything, then reopen the whole set later, even after a restart."
+    target: "activeGroupsList", view: "dashboard",
+    text: "Your groups show up here. The X removes one. The side panel gives you the same list plus rename, collapse, and move-to-new-window."
   },
   {
-    target: "activeGroupsList",
-    text: "Your live groups show up here. The side panel gives you the same list plus rename, collapse, and move-to-new-window."
+    target: "dedupe", view: "dashboard",
+    text: "Deduplicate closes repeated URLs across every window. It normalises tracking junk first, so the same article from three different links still counts as one."
   },
   {
-    target: "openSettings",
-    text: "Settings holds your colour theme, custom domain rules, and your API key. That's everything, go make a mess of some tabs."
+    target: "suspendInactive", view: "dashboard",
+    text: "Suspend frees the memory used by tabs you haven't touched in 20 minutes. They reload the moment you click back in. Nothing playing audio gets touched."
+  },
+  {
+    target: "focusBtn", view: "dashboard",
+    text: "Focus collapses every group except the one you're working in. Click again and everything goes back exactly how it was."
+  },
+  {
+    target: "saveSessionBtn", view: "dashboard",
+    text: "Save Session snapshots your tabs and their groups under a name. Close everything, reopen the whole set later, even after a restart."
+  },
+  {
+    target: "archiveStaleBtn", view: "dashboard",
+    text: "Archive Stale closes tabs you haven't opened in a week but saves them to Read Later first. This is the one that fixes tab hoarding."
+  },
+  {
+    target: "mergeWindowsBtn", view: "dashboard",
+    text: "Merge pulls every window into one. Split does the opposite, giving each group its own window. Handy either side of a big cleanup."
+  },
+  {
+    target: "exportMdBtn", view: "dashboard",
+    text: "Export copies every tab to your clipboard as a markdown link list, grouped by category. Good for dropping a research session into notes."
+  },
+  {
+    target: "aiSort", view: "dashboard",
+    text: "This re-sorts everything with AI from scratch, ignoring the local rules. Optional, and it needs your own API key."
+  },
+  {
+    target: "undoBanner", view: "dashboard", showUndo: true,
+    text: "Anything destructive can be undone for two minutes. A banner like this appears after a sort or a close, so a misclick is never permanent."
+  },
+  {
+    target: "toggleSessions", view: "dashboard",
+    text: "Everything you save lives here: sessions, Read Later, and recently closed tabs. Each one expands on click."
+  },
+  {
+    target: "chatInput", view: "stacklet",
+    text: "This is my tab. Ask me what you're working on, or to tidy up. I can see your tab titles and hostnames, never page content."
+  },
+  {
+    target: "stackletAnalyze", view: "stacklet",
+    text: "These two are shortcuts for the things people ask most. I'll propose actions and you approve them before anything happens."
+  },
+  {
+    target: "toggleAccessories", view: "stacklet",
+    text: "Every action you take earns points, and points unlock accessories for me. Hats, glasses, a cape eventually. Open this to see what's next."
+  },
+  {
+    target: "paletteInput", view: "search",
+    text: "Find filters your open tabs as you type. If you can only describe the tab rather than name it, there's an AI fallback underneath."
+  },
+  {
+    target: "statWeekTotal", view: "stats", statsDemo: true,
+    text: "Stats tracks time per category per day, entirely on your machine. This is sample data, your real numbers come back the moment we're done."
+  },
+  {
+    target: "openSettings", view: "dashboard",
+    text: "Settings holds your theme, accent colour, custom domain rules, and API key. That's everything, go make a mess of some tabs."
   }
 ];
 
 let tutorialIndex = 0;
 
-function positionSpotlight(targetId) {
+// Re-measures the current step's target. Bound to scroll and resize while
+// the tutorial is open, because the spotlight is position:fixed while the
+// target lives in a scrolling container: without this the highlight stays
+// put and the element slides out from under it.
+let spotlightTargetId = null;
+let spotlightRaf = null;
+function refreshSpotlight() {
+  if (!spotlightTargetId) return;
+  cancelAnimationFrame(spotlightRaf);
+  spotlightRaf = requestAnimationFrame(() => positionSpotlight(spotlightTargetId, { remeasureOnly: true }));
+}
+
+function positionSpotlight(targetId, { remeasureOnly = false } = {}) {
+  spotlightTargetId = targetId;
   const spot = document.getElementById("tutorialSpotlight");
   const card = document.getElementById("tutorialCard");
   if (!spot || !card) return;
@@ -1185,16 +1476,6 @@ function positionSpotlight(targetId) {
 
   const el = document.getElementById(targetId);
   if (!el) return positionSpotlight(null);
-
-  // Only scroll when the target is genuinely off-screen, and scroll
-  // instantly. The previous version always smooth-scrolled and then measured
-  // in the same tick, so the rect was read *before* the scroll finished and
-  // every highlight landed at stale coordinates. For anything already in
-  // view (the header gear on the last step) scrolling also dragged the whole
-  // layout sideways under the spotlight.
-  const pre = el.getBoundingClientRect();
-  const fullyVisible = pre.top >= 0 && pre.bottom <= window.innerHeight;
-  if (!fullyVisible) el.scrollIntoView({ block: "center", behavior: "auto" });
 
   const r = el.getBoundingClientRect();
   const pad = 6;
@@ -1250,6 +1531,33 @@ async function renderTutorialStep() {
   const backBtn = document.getElementById("tutorialBack");
   const nextBtn = document.getElementById("tutorialNext");
 
+  // Switch to the view holding this step's target, fading between them, then
+  // wait for paint. Measuring a display:none element returns zeroes and the
+  // spotlight would land in the corner.
+  if (step.view) {
+    await switchViewAnimated(step.view);
+  }
+
+  // Smooth-scroll the target into the middle of the container and WAIT for
+  // the scroll to actually finish before measuring. Measuring mid-scroll is
+  // what made highlights land in the wrong place.
+  const targetEl = step.target ? document.getElementById(step.target) : null;
+  if (targetEl) {
+    targetEl.scrollIntoView({ block: "center", behavior: "smooth" });
+    await waitForScrollEnd(document.querySelector(".popup-container"));
+  }
+  // The undo banner is normally hidden, so reveal it for its own step
+  // rather than spotlighting an invisible element.
+  const undoBanner = document.getElementById("undoBanner");
+  if (undoBanner) {
+    if (step.showUndo) {
+      document.getElementById("undoText").textContent = "Example: a sort just ran.";
+      undoBanner.style.display = "flex";
+    } else if (!undoBanner.dataset.real) {
+      undoBanner.style.display = "none";
+    }
+  }
+
   countEl.textContent = `STEP ${tutorialIndex + 1} OF ${TUTORIAL_STEPS.length}`;
   backBtn.style.visibility = tutorialIndex === 0 ? "hidden" : "visible";
   nextBtn.textContent = tutorialIndex === TUTORIAL_STEPS.length - 1 ? "Finish" : "Next";
@@ -1260,7 +1568,15 @@ async function renderTutorialStep() {
   // step could grow downward afterwards and cover its own target.
   textEl.textContent = step.text;
   positionSpotlight(step.target);
+
+  // Leaving the stats step restores the user's real figures.
+  if (!step.statsDemo && statsDemoSaved) restoreStatsAfterDemo();
+
   await typeInto(textEl, step.text, 16);
+
+  // Synthetic data animates in only after the explanation is on screen,
+  // so the motion doesn't compete with the text for attention.
+  if (step.statsDemo) playStatsDemo();
 }
 
 async function startTutorial() {
@@ -1276,18 +1592,47 @@ async function startTutorial() {
 
   tutorialIndex = 0;
   overlay.classList.add("show");
+
+  // The spotlight is fixed-position while its targets scroll, so it has to
+  // re-measure on every scroll and resize for as long as the tutorial runs.
+  const scroller = document.querySelector(".popup-container");
+  scroller?.addEventListener("scroll", refreshSpotlight, { passive: true });
+  window.addEventListener("resize", refreshSpotlight);
+  startTutorial._detach = () => {
+    scroller?.removeEventListener("scroll", refreshSpotlight);
+    window.removeEventListener("resize", refreshSpotlight);
+  };
+
   await renderTutorialStep();
 }
 
 function endTutorial() {
+  startTutorial._detach?.();
+  startTutorial._detach = null;
+  spotlightTargetId = null;
+  if (statsDemoSaved) restoreStatsAfterDemo();
   document.getElementById("tutorialOverlay")?.classList.remove("show");
+  const banner = document.getElementById("undoBanner");
+  if (banner && !banner.dataset.real) banner.style.display = "none";
+  window.__staxSwitchView?.("dashboard");
   chrome.storage.sync.set({ tutorialDone: true });
+}
+
+// Completing it is worth a chunk of points, which usually lands the first
+// accessory right as the tutorial ends.
+async function finishTutorial() {
+  const { tutorialRewarded = false } = await chrome.storage.sync.get(["tutorialRewarded"]);
+  endTutorial();
+  if (!tutorialRewarded) {
+    await chrome.storage.sync.set({ tutorialRewarded: true });
+    earn("tutorial");
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tutorialNext")?.addEventListener("click", async () => {
     if (tutorialIndex >= TUTORIAL_STEPS.length - 1) {
-      endTutorial();
+      finishTutorial();
       return;
     }
     tutorialIndex++;
@@ -1308,3 +1653,738 @@ document.addEventListener("DOMContentLoaded", () => {
     startTutorial();
   });
 });
+
+// ---- Recently Closed ----
+async function loadRecentlyClosed() {
+  const list = document.getElementById("recentlyClosedList");
+  if (!list) return;
+  try {
+    const res = await sendMessage({ type: "GET_RECENTLY_CLOSED" });
+    const tabs = res?.tabs || [];
+
+    // Update the inbox count badge
+    const countEl = document.getElementById("recentCount");
+    if (countEl) countEl.textContent = tabs.length;
+
+    if (!tabs.length) {
+      list.innerHTML = `<div class="empty-state">Nothing closed recently</div>`;
+      return;
+    }
+
+    list.innerHTML = "";
+    tabs.slice(0, 10).forEach(t => {
+      let host = "";
+      try { host = new URL(t.url).hostname.replace(/^www\./, ""); } catch {}
+      const item = document.createElement("div");
+      item.className = "group-item";
+      item.style.cursor = "pointer";
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; min-width:0; flex:1; gap:7px;">
+          <img src="https://www.google.com/s2/favicons?sz=16&domain=${encodeURIComponent(host)}" width="14" height="14" style="border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
+          <span class="group-name" style="font-weight:600;">${escapeHtml(t.title || host || "Untitled")}</span>
+          <span class="group-count" style="font-size:10.5px;">${escapeHtml(host)}</span>
+        </div>
+        <button class="btn-icon-small" title="Reopen" data-session="${escapeHtml(t.sessionId || "")}">${icon("undo", 12)}</button>
+      `;
+      const restore = async () => {
+        await sendMessage({ type: "RESTORE_RECENTLY_CLOSED", sessionId: t.sessionId });
+        setTimeout(loadRecentlyClosed, 400);
+      };
+      item.addEventListener("click", restore);
+      item.querySelector("button").addEventListener("click", (e) => { e.stopPropagation(); restore(); });
+      list.appendChild(item);
+    });
+  } catch (err) {
+    console.warn("Stax: loadRecentlyClosed failed", err);
+    list.innerHTML = `<div class="empty-state">Couldn't load recent tabs.</div>`;
+  }
+}
+
+// ---- Archive / Read Later ----
+async function loadArchive() {
+  const list = document.getElementById("archiveList");
+  if (!list) return;
+  try {
+    const res = await sendMessage({ type: "LIST_ARCHIVE" });
+    archiveCache = Array.isArray(res) ? res : [];
+    const countEl = document.getElementById("archiveCount");
+    if (countEl) countEl.textContent = archiveCache.length;
+    wireArchiveSearch();
+    const input = document.getElementById("archiveSearch");
+    const q = (input?.value || "").trim().toLowerCase();
+    renderArchiveList(q
+      ? archiveCache.filter(a => (a.title || "").toLowerCase().includes(q) || (a.url || "").toLowerCase().includes(q))
+      : archiveCache);
+  } catch (err) {
+    console.warn("Stax: loadArchive failed", err);
+    list.innerHTML = `<div class="empty-state">Couldn't load archive.</div>`;
+  }
+}
+
+// CATEGORY_COLORS and fmtMs are used by loadStatsView
+const CATEGORY_COLORS = {
+  "Development":   "#8fc4f7",
+  "AI & ML":       "#c9a7f5",
+  "Productivity":  "#f7c948",
+  "Research":      "#9ee0be",
+  "Communication": "#f5a9c4",
+  "Finance & Pay": "#9ee0be",
+  "Shopping":      "#f7a978",
+  "Entertainment": "#f5a9c4",
+  "Social & Media":"#f7a978",
+  "Uncategorised": "#b9b5ab"
+};
+
+function fmtMs(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return "<1m";
+}
+
+
+// ---- Icon hydration ----
+// Markup declares which icon it wants via data-icon; this fills them in
+// after load. Keeps the HTML free of inlined SVG (which made it unreadable)
+// while still shipping real vectors rather than font-dependent emoji.
+function hydrateIcons(root = document) {
+  root.querySelectorAll("[data-icon]").forEach(el => {
+    if (el.dataset.iconDone) return;
+    const size = Number(el.dataset.iconSize) || (el.classList.contains("tool-tile-icon") ? 19 : 17);
+    const svg = icon(el.dataset.icon, size);
+    if (svg) {
+      el.innerHTML = svg;
+      el.dataset.iconDone = "1";
+    }
+  });
+}
+
+// Small vector previews for the accessory picker, matching how each item
+// actually looks on the character rather than a stand-in emoji.
+const ACCESSORY_GLYPH = {
+  hat:        '<svg viewBox="0 0 24 24" width="20" height="20"><ellipse cx="12" cy="16" rx="9" ry="2.2" fill="#2e1c44"/><path d="M7.5 15.5V9a4.5 1.8 0 019 0v6.5z" fill="#3a2456"/><path d="M7.5 14h9" stroke="#f7c948" stroke-width="1.6"/></svg>',
+  glasses:    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7.5" cy="13" r="4.2"/><circle cx="16.5" cy="13" r="4.2"/><path d="M11.7 12.4q1.2-1 1.6 0M3.3 11L5 8.5M20.7 11L19 8.5"/></svg>',
+  scarf:      '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 10q8 4 16 0v3.4q-8 4-16 0z" fill="#d9455b"/><path d="M15 13q3 1.4 2.6 6.2-1.8 1-3-.5-.5-2.8.4-5.7z" fill="#c93c50"/></svg>',
+  crown:      '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 16L5.6 6l4 4L12 3l2.4 7 4-4L20 16z" fill="#f2c230"/><rect x="4" y="16" width="16" height="2.4" fill="#dba81f"/><circle cx="12" cy="8" r="1.3" fill="#e8556d"/></svg>',
+  backpack:   '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="6" y="7" width="12" height="14" rx="4" fill="#4a9fd4"/><rect x="8.5" y="10" width="7" height="5" rx="2" fill="#2f7fb0" opacity="0.7"/><path d="M8.5 8Q7 3.5 10 2.5M15.5 8Q17 3.5 14 2.5" stroke="#4a9fd4" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  stars:      '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l1.5 3.6L17 8l-3.5 1.4L12 13l-1.5-3.6L7 8l3.5-1.4z" fill="#f7c948"/><path d="M18.5 15l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" fill="#f7c948" opacity="0.7"/><circle cx="5" cy="17" r="1.4" fill="#f7c948" opacity="0.6"/></svg>',
+  headphones: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 14Q5 4 12 4t7 10" stroke="#2b2438" stroke-width="2.4" fill="none" stroke-linecap="round"/><rect x="2.5" y="12.5" width="4.6" height="7.5" rx="2.3" fill="#2b2438"/><rect x="16.9" y="12.5" width="4.6" height="7.5" rx="2.3" fill="#2b2438"/></svg>',
+  cape:       '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 6Q1 17 5.5 22 12 18 18.5 22 23 17 19 6 12 10 5 6z" fill="#7b4fc9"/><path d="M5 6q7 4 14 0" stroke="#5c37a0" stroke-width="1.2" fill="none"/></svg>',
+};
+
+// ---- Stacklet mood + accessories ----
+let currentMood = "happy";
+let currentAccessory = null;
+
+function celebrateStacklet(el) {
+  if (!el) return;
+  el.classList.remove("celebrate");
+  void el.offsetWidth; // force reflow so re-adding the class retriggers the animation
+  el.classList.add("celebrate");
+  setTimeout(() => el.classList.remove("celebrate"), 750);
+}
+
+function applyMood(el, mood, accessory) {
+  if (!el) return;
+  ["mood-happy","mood-neutral","mood-stressed","mood-buried"].forEach(c => el.classList.remove(c));
+  el.classList.add(`mood-${mood || "happy"}`);
+  // Rebuild the SVG with the new mood and accessory. We rebuild rather than
+  // mutating individual paths because SVG linearGradient stops don't update
+  // reliably via CSS class changes in Chrome when inside a shadow-style context.
+  el.innerHTML = stackletSvg(mood || "happy", accessory || null);
+}
+
+async function syncStackletMood() {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.windowId) return;
+  const res = await sendMessage({ type: "GET_HYGIENE", windowId: activeTab.windowId });
+  if (!res?.ok) return;
+
+  const mood = res.mood || "happy";
+  const accRes = await sendMessage({ type: "GET_ACCESSORIES" });
+  const equipped = accRes?.equipped || null;
+
+  if (mood !== currentMood || equipped !== currentAccessory) {
+    currentMood = mood;
+    currentAccessory = equipped;
+    const figures = [
+      document.getElementById("stackletFigure"),
+      document.getElementById("perchedStacklet"),
+      document.getElementById("tutorialStacklet"),
+    ];
+    figures.forEach(el => {
+      if (el) applyMood(el, mood, equipped);
+    });
+  }
+
+  // Update the perched Stacklet's title tooltip so hovering shows the mood
+  const perched = document.getElementById("perchedStacklet");
+  if (perched) {
+    const msgs = { happy:"Stacklet is happy!", neutral:"Stacklet thinks you could tidy up...", stressed:"Stacklet is stressed about all these tabs.", buried:"Stacklet is buried. Help!" };
+    perched.title = msgs[mood] || "Stacklet";
+  }
+}
+
+function showUnlockToast(item) {
+  const toast = document.getElementById("unlockToast");
+  if (!toast) return;
+  toast.innerHTML = `${icon("sparkle", 15)}<span>Unlocked: ${escapeHtml(item.label)}</span>`;
+  toast.classList.add("show");
+  clearTimeout(showUnlockToast._t);
+  showUnlockToast._t = setTimeout(() => toast.classList.remove("show"), 3200);
+}
+
+async function loadAccessories() {
+  const grid = document.getElementById("accessoriesGrid");
+  const hint = document.getElementById("accessoryHint");
+  if (!grid) return;
+
+  const res = await sendMessage({ type: "GET_ACCESSORIES" });
+  if (!res?.ok) return;
+
+  const unlocked = res.all.filter(a => a.unlocked).length;
+  if (hint) hint.textContent = `${unlocked}/${res.all.length}`;
+
+  // Level row
+  const badge = document.getElementById("levelBadge");
+  const bar = document.getElementById("levelBar");
+  const pts = document.getElementById("levelPoints");
+  const lvlHint = document.getElementById("levelHint");
+  if (badge) badge.textContent = `LV ${res.level}`;
+  if (bar) bar.style.width = `${res.progressToNext}%`;
+  if (pts) pts.textContent = `${res.points} pts`;
+  if (lvlHint) {
+    const next = res.all.find(a => !a.unlocked);
+    lvlHint.textContent = next
+      ? `${next.remaining} more points to unlock ${next.label}.`
+      : "Everything unlocked. Stacklet is fully dressed.";
+  }
+
+  grid.innerHTML = "";
+  res.all.forEach(item => {
+    const chip = document.createElement("button");
+    chip.className = `accessory-chip${item.unlocked ? "" : " locked"}${res.equipped === item.id ? " equipped" : ""}`;
+    chip.title = item.unlocked
+      ? (res.equipped === item.id ? "Equipped, click to take it off" : `Equip ${item.label}`)
+      : `Unlocks at ${item.cost} points`;
+    chip.innerHTML = `
+      <span class="accessory-icon">${ACCESSORY_GLYPH[item.id] || ""}</span>
+      <span class="accessory-label">${escapeHtml(item.label)}</span>
+      ${item.unlocked ? "" : `<span class="accessory-cost">${item.cost} pts</span>`}
+    `;
+    if (item.unlocked) {
+      chip.addEventListener("click", async () => {
+        const newId = res.equipped === item.id ? null : item.id;
+        await sendMessage({ type: "EQUIP_ACCESSORY", id: newId });
+        currentAccessory = newId;
+        await syncStackletMood();
+        loadAccessories();
+      });
+    }
+    grid.appendChild(chip);
+  });
+}
+
+// Shows a floating "+N" near the points counter. Anchored to the counter if
+// it's visible, otherwise to the perched Stacklet, so the feedback always
+// appears somewhere the user is actually looking.
+function showPointPop(gained) {
+  if (!gained) return;
+  const anchor = document.getElementById("levelPoints")
+    || document.getElementById("perchedStacklet");
+  if (!anchor) return;
+  const r = anchor.getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "point-pop";
+  pop.textContent = `+${gained}`;
+  pop.style.left = `${r.left + r.width / 2 - 10}px`;
+  pop.style.top = `${r.top - 6}px`;
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 1150);
+}
+
+// Single entry point for awarding points. Every interaction that should pay
+// out goes through here so the reward rules live in one place rather than
+// being sprinkled through each button handler.
+async function earn(kind, multiplier = 1) {
+  const res = await sendMessage({ type: "AWARD_POINTS", kind, multiplier });
+  if (!res?.ok || !res.gained) return res;
+
+  showPointPop(res.gained);
+
+  if (res.newItems?.length) {
+    res.newItems.forEach(item => showUnlockToast(item));
+    [document.getElementById("stackletFigure"), document.getElementById("perchedStacklet")]
+      .forEach(el => { if (el) celebrateStacklet(el); });
+  } else if (res.levelUp) {
+    stackletReact(`Level ${res.level}! Nice.`);
+    [document.getElementById("stackletFigure"), document.getElementById("perchedStacklet")]
+      .forEach(el => { if (el) celebrateStacklet(el); });
+  }
+  loadAccessories();
+  return res;
+}
+
+
+// ---- Stats view ----
+async function loadStatsView() {
+  try {
+    // Time stats
+    const timeRes = await sendMessage({ type: "GET_TIME_STATS", days: 7 });
+    const weekTotal = document.getElementById("statWeekTotal");
+    if (weekTotal) {
+      if (!timeRes?.ok || !timeRes.grandTotal) {
+        weekTotal.textContent = "0m";
+        weekTotal.nextElementSibling.textContent = "no time tracked yet, use Stax for a bit first";
+      } else {
+        weekTotal.textContent = fmtMs(timeRes.grandTotal);
+        document.querySelector(".stats-week-sub").textContent = "tracked this week";
+      }
+    }
+
+    // Day bars
+    if (timeRes?.ok) {
+      const chart = document.getElementById("insightsChart");
+      const totalsEl = document.getElementById("insightsTotals");
+      if (chart) {
+        const maxDay = Math.max(...(timeRes.perDay || []).map(d => d.total), 1);
+        chart.innerHTML = "";
+        (timeRes.perDay || []).forEach(d => {
+          const pct = Math.round((d.total / maxDay) * 100);
+          const label = new Date(d.day + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" });
+          const wrap = document.createElement("div");
+          wrap.className = "insights-bar-wrap";
+          wrap.title = `${label}: ${fmtMs(d.total)}`;
+          wrap.innerHTML = `<div class="insights-bar" style="height:${Math.max(pct,2)}%"></div><div class="insights-bar-label">${label.slice(0,1)}</div>`;
+          chart.appendChild(wrap);
+        });
+      }
+      if (totalsEl) {
+        totalsEl.innerHTML = "";
+        (timeRes.totals || []).slice(0, 6).forEach(row => {
+          const color = CATEGORY_COLORS[row.category] || "#b9b5ab";
+          const pct = timeRes.grandTotal ? Math.round((row.ms / timeRes.grandTotal) * 100) : 0;
+          const el = document.createElement("div");
+          el.className = "insights-row";
+          el.innerHTML = `<div class="insights-dot" style="background:${color}"></div><div class="insights-cat">${escapeHtml(row.category)}</div><div class="insights-time">${fmtMs(row.ms)} <span style="opacity:0.5;">(${pct}%)</span></div>`;
+          totalsEl.appendChild(el);
+        });
+        if (!timeRes.totals?.length) totalsEl.innerHTML = `<div class="empty-state">Nothing tracked yet</div>`;
+      }
+    }
+
+    // Right now card
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.windowId) {
+      const hyg = await sendMessage({ type: "GET_HYGIENE", windowId: activeTab.windowId });
+      if (hyg?.ok) {
+        const pct = hyg.tabCount ? Math.round(hyg.groupedRatio * 100) : 0;
+        const el = (id) => document.getElementById(id);
+        if (el("statTabCount"))  el("statTabCount").textContent  = hyg.tabCount;
+        if (el("statGroupCount"))el("statGroupCount").textContent= hyg.groupCount;
+        if (el("statGrouped"))   el("statGrouped").textContent   = pct + "%";
+        if (el("statMoodEmoji")) el("statMoodEmoji").innerHTML   = moodFace(hyg.mood, 24);
+      }
+    }
+    loadDigest();
+    loadTabTree();
+  } catch (err) {
+    console.warn("Stax: loadStatsView failed", err);
+  }
+}
+
+// Reset stats button
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("resetStats")?.addEventListener("click", async () => {
+    await sendMessage({ type: "RESET_TIME_STATS" });
+    showStatus("Time stats reset.", "ok");
+    loadStatsView();
+  });
+});
+
+// ---- Live sync ----
+// The popup used to render once on open and never again, so anything that
+// changed while it was open (a tab closing, a group being renamed from the
+// side panel, points earned) only appeared after a manual reload.
+// These listeners keep it current. Refreshes are debounced because Chrome
+// fires bursts of tab events during a sort, and re-rendering per event would
+// thrash the DOM and make the list flicker.
+let liveSyncTimer = null;
+function scheduleLiveRefresh(reason = "") {
+  clearTimeout(liveSyncTimer);
+  liveSyncTimer = setTimeout(async () => {
+    try {
+      const dashVisible = document.getElementById("dashboardView")?.style.display !== "none";
+      const statsVisible = document.getElementById("statsView")?.style.display === "block";
+
+      // Only re-render what's actually on screen. Refreshing a hidden view
+      // costs API calls for something nobody can see.
+      if (dashVisible) {
+        loadActiveGroups();
+        refreshStatStripLive();
+        refreshInboxCountsLive();
+      }
+      if (statsVisible) loadStatsView();
+      syncStackletMood();
+    } catch (err) {
+      console.warn("Stax: live refresh failed", reason, err);
+    }
+  }, 220);
+}
+
+// These two are defined inside DOMContentLoaded, so expose thin wrappers the
+// listeners above can reach from module scope.
+function refreshStatStripLive() { window.__staxRefreshStrip?.(); }
+function refreshInboxCountsLive() { window.__staxRefreshCounts?.(); }
+
+function attachLiveSync() {
+  // Tab and group changes
+  const tabEvents = [
+    chrome.tabs.onCreated, chrome.tabs.onRemoved, chrome.tabs.onUpdated,
+    chrome.tabs.onMoved, chrome.tabs.onAttached, chrome.tabs.onDetached,
+  ];
+  tabEvents.forEach(ev => { try { ev.addListener(() => scheduleLiveRefresh("tabs")); } catch {} });
+
+  const groupEvents = [
+    chrome.tabGroups?.onCreated, chrome.tabGroups?.onRemoved,
+    chrome.tabGroups?.onUpdated, chrome.tabGroups?.onMoved,
+  ];
+  groupEvents.forEach(ev => { try { ev?.addListener(() => scheduleLiveRefresh("groups")); } catch {} });
+
+  // Storage changes cover everything the background worker does on its own:
+  // points awarded, sessions saved, archive updated, accent changed from
+  // another surface. This is what makes the side panel and popup agree.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (changes.accent) applyAccent(changes.accent.newValue);
+    if (changes.theme) {
+      const v = changes.theme.newValue;
+      if (v === "auto") document.documentElement.removeAttribute("data-theme");
+      else document.documentElement.setAttribute("data-theme", v);
+    }
+    if (changes.stax_usage || changes.stax_accessories || changes.stackletAccessory) {
+      loadAccessories();
+      syncStackletMood();
+    }
+    if (changes.stax_sessions || changes.stax_archive) scheduleLiveRefresh("storage");
+  });
+}
+
+// ---- Tutorial motion helpers ----
+
+// Resolves once a smooth scroll has settled. Polls scrollTop and resolves
+// when it stops changing, with a hard timeout so a scroll that never moves
+// (target already centred) doesn't hang the step.
+function waitForScrollEnd(container, timeoutMs = 700) {
+  return new Promise(resolve => {
+    if (!container) return resolve();
+    let last = container.scrollTop;
+    let stableFrames = 0;
+    const started = Date.now();
+    (function check() {
+      const now = container.scrollTop;
+      if (now === last) stableFrames++;
+      else stableFrames = 0;
+      last = now;
+      if (stableFrames >= 3 || Date.now() - started > timeoutMs) return resolve();
+      requestAnimationFrame(check);
+    })();
+  });
+}
+
+// Cross-fades between views instead of hard-swapping display, so tutorial
+// steps that jump tabs don't flash.
+async function switchViewAnimated(name) {
+  const current = ["dashboardView", "stackletView", "searchView", "statsView"]
+    .map(id => document.getElementById(id))
+    .find(el => el && el.style.display !== "none");
+  const next = document.getElementById(
+    { dashboard: "dashboardView", stacklet: "stackletView", search: "searchView", stats: "statsView" }[name]
+  );
+  if (!next || current === next) {
+    window.__staxSwitchView?.(name);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return;
+  }
+
+  if (current) {
+    current.style.transition = "opacity 0.16s ease";
+    current.style.opacity = "0";
+    await new Promise(r => setTimeout(r, 160));
+  }
+  window.__staxSwitchView?.(name);
+  next.style.opacity = "0";
+  next.style.transition = "opacity 0.22s ease";
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  next.style.opacity = "1";
+  if (current) current.style.opacity = "";
+  await new Promise(r => setTimeout(r, 220));
+}
+
+// ---- Tutorial stats demo ----
+// The Stats step is dead on a fresh install: no tracked time means empty
+// bars and a zero total, which teaches the user nothing. This plays a short
+// synthetic animation instead, then restores whatever real data exists so
+// nothing the user actually accumulated is lost.
+let statsDemoSaved = null;
+
+async function playStatsDemo() {
+  const totalEl = document.getElementById("statWeekTotal");
+  const chart = document.getElementById("insightsChart");
+  const totals = document.getElementById("insightsTotals");
+  if (!totalEl || !chart) return;
+
+  // Snapshot the real rendered markup so it can be put straight back.
+  statsDemoSaved = {
+    total: totalEl.textContent,
+    chart: chart.innerHTML,
+    totals: totals ? totals.innerHTML : "",
+  };
+
+  const demoDays = [42, 68, 35, 91, 74, 58, 80];
+  const demoCats = [
+    { category: "Development", ms: 4.2 * 3600000 },
+    { category: "Research", ms: 2.6 * 3600000 },
+    { category: "Communication", ms: 1.4 * 3600000 },
+    { category: "Entertainment", ms: 0.8 * 3600000 },
+  ];
+  const grand = demoCats.reduce((a, c) => a + c.ms, 0);
+
+  // Bars grow from zero, staggered left to right.
+  const maxDay = Math.max(...demoDays);
+  chart.innerHTML = "";
+  const labels = ["M", "T", "W", "T", "F", "S", "S"];
+  demoDays.forEach((v, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "insights-bar-wrap";
+    wrap.innerHTML = `<div class="insights-bar" style="height:0%"></div><div class="insights-bar-label">${labels[i]}</div>`;
+    chart.appendChild(wrap);
+    setTimeout(() => {
+      wrap.querySelector(".insights-bar").style.height = `${Math.round((v / maxDay) * 100)}%`;
+    }, 120 + i * 90);
+  });
+
+  // Category rows fade in behind the bars.
+  if (totals) {
+    totals.innerHTML = "";
+    demoCats.forEach((row, i) => {
+      const el = document.createElement("div");
+      el.className = "insights-row";
+      el.style.opacity = "0";
+      el.style.transition = "opacity 0.3s ease";
+      const pct = Math.round((row.ms / grand) * 100);
+      el.innerHTML = `<div class="insights-dot" style="background:${CATEGORY_COLORS[row.category] || "#b9b5ab"}"></div><div class="insights-cat">${row.category}</div><div class="insights-time">${fmtMs(row.ms)} <span style="opacity:0.5;">(${pct}%)</span></div>`;
+      totals.appendChild(el);
+      setTimeout(() => { el.style.opacity = "1"; }, 400 + i * 120);
+    });
+  }
+
+  // Count the headline total up rather than snapping to it.
+  await countUpTo(totalEl, grand, 1100);
+}
+
+// Eases a duration counter from zero to a target, formatted as h/m.
+function countUpTo(el, targetMs, durationMs) {
+  return new Promise(resolve => {
+    const start = performance.now();
+    (function frame(now) {
+      const t = Math.min(1, (now - start) / durationMs);
+      // ease-out cubic, so it decelerates into the final number
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = fmtMs(Math.round(targetMs * eased));
+      if (t < 1) requestAnimationFrame(frame);
+      else resolve();
+    })(start);
+  });
+}
+
+// Puts the user's real numbers back after the demo.
+function restoreStatsAfterDemo() {
+  if (!statsDemoSaved) return;
+  const totalEl = document.getElementById("statWeekTotal");
+  const chart = document.getElementById("insightsChart");
+  const totals = document.getElementById("insightsTotals");
+  if (totalEl) totalEl.textContent = statsDemoSaved.total;
+  if (chart) chart.innerHTML = statsDemoSaved.chart;
+  if (totals) totals.innerHTML = statsDemoSaved.totals;
+  statsDemoSaved = null;
+  // Re-read from storage so anything that changed during the tutorial shows.
+  loadStatsView();
+}
+
+// ---- Read Later search ----
+// Filters client-side rather than re-querying, because the whole archive is
+// already in memory and round-tripping to the worker on every keystroke
+// would make typing feel laggy.
+let archiveCache = [];
+
+function renderArchiveList(items) {
+  const list = document.getElementById("archiveList");
+  if (!list) return;
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-state">${archiveCache.length ? "No matches" : "Nothing saved yet. Tabs close here, not into history."}</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  items.slice(0, 60).forEach(entry => {
+    let host = "";
+    try { host = new URL(entry.url).hostname.replace(/^www\./, ""); } catch {}
+    const dateStr = new Date(entry.archivedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const el = document.createElement("div");
+    el.className = "archive-item";
+    el.innerHTML = `
+      <img class="archive-favicon" src="https://www.google.com/s2/favicons?sz=16&domain=${encodeURIComponent(host)}" onerror="this.style.display='none'">
+      <span class="archive-title" title="${escapeHtml(entry.url)}">${escapeHtml(entry.title || host)}</span>
+      <span class="archive-date">${dateStr}</span>
+      <button class="btn-icon-small archive-delete" title="Remove">${icon("close", 11)}</button>
+    `;
+    el.addEventListener("click", async (e) => {
+      if (e.target.closest(".archive-delete")) {
+        await sendMessage({ type: "DELETE_ARCHIVED", id: entry.id });
+        loadArchive();
+        return;
+      }
+      await sendMessage({ type: "RESTORE_ARCHIVED", id: entry.id, keep: false });
+      loadArchive();
+    });
+    list.appendChild(el);
+  });
+}
+
+function wireArchiveSearch() {
+  const input = document.getElementById("archiveSearch");
+  if (!input || input.dataset.wired) return;
+  input.dataset.wired = "1";
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) return renderArchiveList(archiveCache);
+    renderArchiveList(archiveCache.filter(a =>
+      (a.title || "").toLowerCase().includes(q) || (a.url || "").toLowerCase().includes(q)
+    ));
+  });
+}
+
+// ---- Weekly digest ----
+async function loadDigest() {
+  const body = document.getElementById("digestBody");
+  if (!body) return;
+  const d = await sendMessage({ type: "GET_WEEKLY_DIGEST" });
+  if (!d?.ok || !d.totalMs) {
+    body.innerHTML = `<div class="empty-state">Not enough data yet. Come back after a few days of browsing.</div>`;
+    return;
+  }
+
+  const lines = [];
+  lines.push(`<div class="digest-line"><span class="digest-key">Total</span><span class="digest-val">${fmtMs(d.totalMs)}</span></div>`);
+  if (d.topCategory) {
+    lines.push(`<div class="digest-line"><span class="digest-key">Most time in</span><span class="digest-val">${escapeHtml(d.topCategory)}</span></div>`);
+  }
+  if (d.busiestDay) {
+    const day = new Date(d.busiestDay + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" });
+    lines.push(`<div class="digest-line"><span class="digest-key">Busiest day</span><span class="digest-val">${day} (${fmtMs(d.busiestMs)})</span></div>`);
+  }
+  // Trend is only meaningful with a full week behind it; the backend returns
+  // null rather than a misleading percentage when it isn't.
+  if (d.trend != null) {
+    const cls = Math.abs(d.trend) < 8 ? "digest-trend-flat" : d.trend > 0 ? "digest-trend-up" : "digest-trend-down";
+    const label = Math.abs(d.trend) < 8 ? "about the same" : `${d.trend > 0 ? "up" : "down"} ${Math.abs(d.trend)}%`;
+    lines.push(`<div class="digest-line"><span class="digest-key">Second half of week</span><span class="${cls}">${label}</span></div>`);
+  }
+  if (d.archivedThisWeek) {
+    lines.push(`<div class="digest-line"><span class="digest-key">Archived</span><span class="digest-val">${d.archivedThisWeek} page(s)</span></div>`);
+  }
+  if (d.sessionsThisWeek) {
+    lines.push(`<div class="digest-line"><span class="digest-key">Sessions saved</span><span class="digest-val">${d.sessionsThisWeek}</span></div>`);
+  }
+  lines.push(`<div class="digest-line"><span class="digest-key">Stacklet</span><span class="digest-val">Level ${d.level}, ${d.points} pts</span></div>`);
+  body.innerHTML = lines.join("");
+}
+
+// ---- Tab tree ----
+async function loadTabTree() {
+  const container = document.getElementById("tabTree");
+  const meta = document.getElementById("treeMeta");
+  if (!container) return;
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.windowId) return;
+  const res = await sendMessage({ type: "GET_TAB_TREE", windowId: activeTab.windowId });
+  if (!res?.ok) return;
+
+  if (meta) meta.textContent = res.branching ? `${res.branching} trail(s), ${res.maxDepth} deep` : "";
+
+  // Only trails worth looking at: a flat list of roots with no children is
+  // just the tab bar again.
+  const branching = res.roots.filter(r => r.children.length > 0);
+  if (!branching.length) {
+    container.innerHTML = `<div class="empty-state">No branching tabs. Open a few links from a page and they'll show up here.</div>`;
+    return;
+  }
+
+  container.innerHTML = "";
+  const MAX_DEPTH = 3;
+
+  function render(node, depth) {
+    if (depth > MAX_DEPTH) return;
+    const el = document.createElement("div");
+    el.className = "tree-node";
+    el.dataset.depth = String(depth);
+    el.innerHTML = `
+      <span class="tree-branch">${depth === 0 ? "" : "&#9492;"}</span>
+      <span class="tree-title">${escapeHtml(node.title)}</span>
+      <span class="tree-host">${escapeHtml(node.host)}</span>
+    `;
+    el.addEventListener("click", () => sendMessage({ type: "JUMP_TO_TAB", tabId: node.id }));
+    container.appendChild(el);
+
+    if (depth === MAX_DEPTH && node.children.length) {
+      // Say how much is hidden rather than truncating silently.
+      const deeper = document.createElement("div");
+      deeper.className = "tree-more";
+      deeper.textContent = `+${node.children.length} deeper`;
+      container.appendChild(deeper);
+      return;
+    }
+    node.children.forEach(c => render(c, depth + 1));
+  }
+
+  branching.forEach(r => render(r, 0));
+}
+
+// ---- Suggested rules ----
+// Surfaced in Settings, above the manual rule editor, since that's where
+// someone goes when they're thinking about rules anyway.
+async function loadSuggestedRules() {
+  const host = document.getElementById("suggestedRules");
+  if (!host) return;
+  const res = await sendMessage({ type: "GET_SUGGESTED_RULES" });
+  const list = res?.suggestions || [];
+  if (!list.length) { host.innerHTML = ""; return; }
+
+  host.innerHTML = "";
+  list.forEach(s => {
+    const card = document.createElement("div");
+    card.className = "suggest-card";
+    card.innerHTML = `
+      <div class="suggest-text">
+        You've grouped <span class="suggest-domains">${s.domains.map(escapeHtml).join("</span> and <span class=\"suggest-domains\">")}</span>
+        together ${s.count} times. Make it automatic?
+      </div>
+      <div class="suggest-btns">
+        <button class="btn btn-secondary suggest-no">No thanks</button>
+        <button class="btn btn-primary suggest-yes">Add rule</button>
+      </div>
+    `;
+    card.querySelector(".suggest-yes").addEventListener("click", async () => {
+      await sendMessage({ type: "ACCEPT_SUGGESTED_RULE", domains: s.domains, name: s.name });
+      showStatus(`Rule added: ${s.name}`, "ok");
+      card.remove();
+      loadSuggestedRules();
+    });
+    card.querySelector(".suggest-no").addEventListener("click", async () => {
+      await sendMessage({ type: "DISMISS_SUGGESTED_RULE", domains: s.domains });
+      card.remove();
+    });
+    host.appendChild(card);
+  });
+}

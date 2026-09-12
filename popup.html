@@ -40,10 +40,10 @@
         <div class="wizard-step-title">What's your role?</div>
         <div class="wizard-step-subtitle">Helps us tune default categories</div>
         <div class="chip-grid" data-question="role" data-mode="single">
-          <button class="chip-option" data-value="Developer" data-swatch="blue">💻 Developer <span class="chip-check">✓</span></button>
-          <button class="chip-option" data-value="Student" data-swatch="green">🎓 Student <span class="chip-check">✓</span></button>
-          <button class="chip-option" data-value="PowerUser" data-swatch="purple">⚡ Power User <span class="chip-check">✓</span></button>
-          <button class="chip-option" data-value="Other" data-swatch="grey">✨ Other <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Developer" data-swatch="blue">Developer <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Student" data-swatch="green">Student <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="PowerUser" data-swatch="purple">Power User <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="Other" data-swatch="grey">Other <span class="chip-check">✓</span></button>
         </div>
       </div>
 
@@ -55,7 +55,7 @@
           <button class="chip-option" data-value="under10" data-swatch="green">Under 10 <span class="chip-check">✓</span></button>
           <button class="chip-option" data-value="10-30" data-swatch="cyan">10 – 30 <span class="chip-check">✓</span></button>
           <button class="chip-option" data-value="30-60" data-swatch="orange">30 – 60 <span class="chip-check">✓</span></button>
-          <button class="chip-option" data-value="60plus" data-swatch="pink">60+ 😅 <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="60plus" data-swatch="pink">60+ <span class="chip-check">✓</span></button>
         </div>
       </div>
 
@@ -78,7 +78,7 @@
         <div class="wizard-step-title">Interested in AI-powered sorting?</div>
         <div class="wizard-step-subtitle">Uses your own Anthropic or Gemini key</div>
         <div class="chip-grid" data-question="aiInterest" data-mode="single">
-          <button class="chip-option" data-value="yes" data-swatch="pink">✨ Yes, set it up now <span class="chip-check">✓</span></button>
+          <button class="chip-option" data-value="yes" data-swatch="pink">Yes, set it up now <span class="chip-check">✓</span></button>
           <button class="chip-option" data-value="later" data-swatch="yellow">Maybe later <span class="chip-check">✓</span></button>
           <button class="chip-option" data-value="no" data-swatch="grey">No thanks <span class="chip-check">✓</span></button>
         </div>
@@ -114,168 +114,275 @@
         <div class="brand">
           <div class="brand-mark" id="brandMark">
             <div class="brand-mark-stack"><i></i><i></i><i></i></div>
-            <div class="stacklet perched idle" id="perchedStacklet" title="That's Stacklet. Give him a poke."></div>
+            <div class="stacklet perched idle" id="perchedStacklet" title="That's Stacklet. Give him a poke.">
+              <div class="stacklet-bubble perched-bubble" id="perchedBubble"></div>
+            </div>
           </div>
           <div style="min-width: 0;">
             <div class="title">Stax</div>
-            <div class="subtitle" id="subTitleText">Automatic tab clutter management</div>
+            <div class="subtitle" id="subTitleText" data-i18n="tagline">Automatic tab clutter management</div>
           </div>
         </div>
         <div class="header-actions">
-          <button id="openSettings" class="icon-btn" title="Settings">⚙️</button>
+          <button id="openSettings" class="icon-btn" title="Settings" data-icon="gear"></button>
         </div>
       </div>
 
       <div class="nav-tabs" id="navTabs">
-        <button class="nav-tab active" data-view="dashboard"><span class="nav-tab-glyph">▤</span>Tabs</button>
-        <button class="nav-tab" data-view="stacklet"><span class="nav-tab-glyph">◕</span>Stacklet</button>
-        <button class="nav-tab" data-view="search"><span class="nav-tab-glyph">⌕</span>Find</button>
-        <button class="nav-tab" data-view="stats"><span class="nav-tab-glyph">◔</span>Stats</button>
+        <button class="nav-tab active" data-view="dashboard" data-i18n="navTabs"><span class="nav-tab-glyph" data-icon="layers" data-icon-size="15"></span>Tabs</button>
+        <button class="nav-tab" data-view="stacklet" data-i18n="navStacklet"><span class="nav-tab-glyph" data-icon="bot" data-icon-size="15"></span>Stacklet</button>
+        <button class="nav-tab" data-view="search" data-i18n="navFind"><span class="nav-tab-glyph" data-icon="search" data-icon-size="15"></span>Find</button>
+        <button class="nav-tab" data-view="stats" data-i18n="navStats"><span class="nav-tab-glyph" data-icon="chart" data-icon-size="15"></span>Stats</button>
       </div>
 
       <div id="statusBanner" class="status-banner"></div>
       <div id="undoBanner" class="undo-banner" style="display: none;">
         <span id="undoText"></span>
-        <button id="undoBtn" class="undo-link">Undo</button>
+        <button id="undoBtn" class="undo-link" data-i18n="undo">Undo</button>
       </div>
 
       <div id="dashboardView">
-      <!-- Quick Action Controls -->
-      <div class="card space-y">
-        <div class="label">Quick Actions</div>
-        <div class="grid-2">
-          <button id="quickSort" class="btn btn-primary">Smart Sort</button>
-          <button id="ungroupAll" class="btn btn-secondary">Ungroup All</button>
-        </div>
-        <div class="grid-2">
-          <button id="dedupe" class="btn btn-secondary">Close Duplicates</button>
-          <button id="createGroupBtn" class="btn btn-secondary">+ New Group</button>
-        </div>
-        <div class="grid-2">
-          <button id="suspendInactive" class="btn btn-secondary" title="Discards tabs untouched for 20+ minutes to free up RAM">Suspend Inactive</button>
-          <button id="saveSessionBtn" class="btn btn-secondary">Save Session</button>
-        </div>
-        <div class="grid-2">
-          <button id="focusToggle" class="btn btn-secondary" title="Collapse every group except the one you're working in">Focus Mode</button>
-          <button id="exportMd" class="btn btn-secondary" title="Copy all tabs as a markdown link list">Copy as Markdown</button>
-        </div>
-        <div class="section-note">Smart Sort runs entirely on local rules. It only calls AI on whatever is left over, and only if you've set a key.</div>
-        <button id="aiSort" class="btn btn-ai-subtle btn-block" style="margin-top: 4px;"><span class="ai-spark">✨</span>&nbsp;Re-sort everything with AI (optional)</button>
-      </div>
 
-      <!-- Live Group Manager -->
-      <div class="card">
-        <div class="label">Active Tab Groups</div>
-        <div id="activeGroupsList" class="groups-container">
-          <div class="empty-state">No active groups in this window</div>
+        <!-- Hero action: the one thing 90% of opens are for -->
+        <div class="dash-hero">
+          <button id="quickSort" class="btn btn-primary btn-block dash-hero-btn">
+            <span class="dash-hero-icon" data-icon="bolt"></span>
+            <span class="dash-hero-text">
+              <span class="dash-hero-label" data-i18n="smartSort">Smart Sort</span>
+              <span class="dash-hero-sub" data-i18n="smartSortSub">Sort tabs by local rules, AI covers the rest</span>
+            </span>
+          </button>
         </div>
-      </div>
 
-      <!-- Recently Closed -->
-      <div class="card">
-        <div class="label">Recently Closed</div>
-        <div id="recentlyClosedList" class="groups-container">
-          <div class="empty-state">Nothing closed recently</div>
+        <!-- Tab hygiene stat strip: live numbers, no scrolling required -->
+        <div class="stat-strip" id="statStrip">
+          <div class="stat-strip-item">
+            <div class="stat-strip-num" id="stripTabCount">--</div>
+            <div class="stat-strip-label" data-i18n="statTabs">Tabs</div>
+          </div>
+          <div class="stat-strip-divider"></div>
+          <div class="stat-strip-item">
+            <div class="stat-strip-num" id="stripGroupCount">--</div>
+            <div class="stat-strip-label" data-i18n="statGroups">Groups</div>
+          </div>
+          <div class="stat-strip-divider"></div>
+          <div class="stat-strip-item">
+            <div class="stat-strip-num" id="stripGroupedPct">--</div>
+            <div class="stat-strip-label" data-i18n="statGrouped">Grouped</div>
+          </div>
+          <div class="stat-strip-divider"></div>
+          <div class="stat-strip-item stat-strip-mood" id="stripMood">
+            <div class="stat-strip-num stat-strip-face" id="stripMoodIcon"></div>
+            <div class="stat-strip-label" data-i18n="statMood">Mood</div>
+          </div>
         </div>
-      </div>
 
-      <!-- Saved Sessions -->
-      <div class="card">
-        <div class="label">Saved Sessions</div>
-        <div class="section-note" style="margin-bottom: 8px;">Snapshot your current tabs and groups, close them, and reopen the whole set later, even after restarting the browser.</div>
-        <div id="sessionSaveRow" style="display: none; gap: 8px; margin-bottom: 10px;">
-          <input type="text" id="sessionNameInput" class="text-input" style="flex: 1;" placeholder="Session name (e.g. Client Project A)" maxlength="60" />
-          <button id="sessionSaveConfirm" class="btn btn-primary" style="flex-shrink: 0;">Save</button>
+        <!-- Active Groups -->
+        <div class="section-header">
+          <span class="section-title" data-i18n="activeGroups">Active Groups</span>
+          <div class="section-actions">
+            <button id="createGroupBtn" class="pill-btn" title="New group" data-i18n="newGroup">+ Group</button>
+            <button id="ungroupAll" class="pill-btn" title="Remove all groups" data-i18n="ungroupAll">Ungroup all</button>
+          </div>
         </div>
-        <div id="sessionsList" class="groups-container">
-          <div class="empty-state">No saved sessions yet</div>
+        <div id="activeGroupsList" class="groups-container card-bare">
+          <div class="empty-state">No active groups yet. Hit Smart Sort to get started.</div>
         </div>
-      </div>
 
-      <!-- Read later: closing a tab stops being destructive -->
-      <div class="card">
-        <div class="label">Read Later</div>
-        <div class="section-note" style="margin-bottom: 10px;">Archiving closes a tab but keeps the link, so the count actually goes down without losing anything.</div>
-        <div class="grid-2" style="margin-bottom: 10px;">
-          <button id="archiveStale" class="btn btn-secondary" style="font-size: 12px;">Archive stale tabs</button>
-          <button id="clearArchive" class="btn btn-secondary" style="font-size: 12px;">Clear list</button>
+        <!-- Tools: two rows of 4 icon+label tiles -->
+        <div class="section-header" style="margin-top: 14px;">
+          <span class="section-title" data-i18n="tools">Tools</span>
         </div>
-        <div id="archiveList" class="groups-container">
-          <div class="empty-state">Nothing archived yet</div>
+        <div class="tool-grid">
+          <button class="tool-tile" id="dedupe"           title="Close duplicate URLs across all windows">
+            <span class="tool-tile-icon" data-icon="duplicate"></span>
+            <span class="tool-tile-label" data-i18n="toolDedupe">Deduplicate</span>
+          </button>
+          <button class="tool-tile" id="suspendInactive"  title="Discard inactive tabs to free RAM">
+            <span class="tool-tile-icon" data-icon="moon"></span>
+            <span class="tool-tile-label" data-i18n="toolSuspend">Suspend</span>
+          </button>
+          <button class="tool-tile" id="focusBtn"         title="Collapse all groups except the one you're in">
+            <span class="tool-tile-icon" data-icon="target"></span>
+            <span class="tool-tile-label" data-i18n="toolFocus">Focus</span>
+          </button>
+          <button class="tool-tile" id="saveSessionBtn"   title="Save current tabs as a named session">
+            <span class="tool-tile-icon" data-icon="box"></span>
+            <span class="tool-tile-label" data-i18n="toolSaveSession">Save Session</span>
+          </button>
+          <button class="tool-tile" id="archiveStaleBtn"  title="Archive tabs not touched in 7 days to Read Later">
+            <span class="tool-tile-icon" data-icon="inbox"></span>
+            <span class="tool-tile-label" data-i18n="toolArchive">Archive Stale</span>
+          </button>
+          <button class="tool-tile" id="mergeWindowsBtn"  title="Pull all browser windows into one">
+            <span class="tool-tile-icon" data-icon="merge"></span>
+            <span class="tool-tile-label" data-i18n="toolMerge">Merge Windows</span>
+          </button>
+          <button class="tool-tile" id="splitWindowsBtn"  title="Move each group to its own window">
+            <span class="tool-tile-icon" data-icon="split"></span>
+            <span class="tool-tile-label" data-i18n="toolSplit">Split Windows</span>
+          </button>
+          <button class="tool-tile" id="exportMdBtn"      title="Copy all tabs as a markdown link list">
+            <span class="tool-tile-icon" data-icon="clipboard"></span>
+            <span class="tool-tile-label" data-i18n="toolExport">Export MD</span>
+          </button>
         </div>
-      </div>
+        <button id="aiSort" class="btn btn-ai-subtle btn-block" style="margin-top:8px;">
+          <span class="ai-spark" data-icon="sparkle"></span>&nbsp;<span data-i18n="aiResort">Re-sort everything with AI</span>
+        </button>
+
+        <!-- Inbox row: read later + sessions + recently closed as mini-accordions -->
+        <div class="section-header" style="margin-top:14px;">
+          <span class="section-title" data-i18n="saved">Saved</span>
+          <button id="archiveCurrentBtn" class="pill-btn" title="Save this tab to Read Later and close it" data-i18n="addReadLater">+ Read Later</button>
+        </div>
+
+        <!-- Session save input (hidden until button pressed) -->
+        <div id="sessionSaveRow" style="display:none; gap:8px; margin-bottom:8px;">
+          <input type="text" id="sessionNameInput" class="text-input" style="flex:1;" placeholder="Session name..." maxlength="60"/>
+          <button id="sessionSaveConfirm" class="btn btn-primary" style="flex-shrink:0;">Save</button>
+        </div>
+
+        <!-- Three collapsible inbox panels -->
+        <div class="inbox-group">
+          <button class="inbox-row" id="toggleSessions">
+            <span class="inbox-icon" data-icon="box"></span>
+            <span class="inbox-label" data-i18n="sessions">Sessions</span>
+            <span class="inbox-count" id="sessionsCount">0</span>
+            <span class="inbox-chevron">▸</span>
+          </button>
+          <div class="inbox-body" id="sessionsList" style="display:none;">
+            <div class="empty-state">No saved sessions yet</div>
+          </div>
+
+          <button class="inbox-row" id="toggleReadLater">
+            <span class="inbox-icon" data-icon="inbox"></span>
+            <span class="inbox-label" data-i18n="readLater">Read Later</span>
+            <span class="inbox-count" id="archiveCount">0</span>
+            <span class="inbox-chevron">▸</span>
+          </button>
+          <div class="inbox-body" id="archiveBody" style="display:none;">
+            <input type="text" id="archiveSearch" class="text-input" style="width:100%; margin-bottom:8px; font-size:12px;" placeholder="Search saved pages..." />
+            <div id="archiveList">
+              <div class="empty-state">Nothing saved yet</div>
+            </div>
+          </div>
+
+          <button class="inbox-row" id="toggleRecent">
+            <span class="inbox-icon" data-icon="undo"></span>
+            <span class="inbox-label" data-i18n="recentlyClosed">Recently Closed</span>
+            <span class="inbox-count" id="recentCount">0</span>
+            <span class="inbox-chevron">▸</span>
+          </button>
+          <div class="inbox-body" id="recentlyClosedList" style="display:none;">
+            <div class="empty-state">Nothing closed recently</div>
+          </div>
+        </div>
+
       </div><!-- /dashboardView -->
 
-      <!-- Stats: where your attention actually went. All computed locally
-           from active-tab timings, nothing leaves the machine. -->
-      <div id="statsView" style="display: none;">
-        <div class="card">
-          <div class="label">This Week</div>
-          <div class="stat-headline" id="statHeadline">No time tracked yet</div>
-          <div class="section-note" id="statSub">Stax starts counting as soon as you switch between tabs.</div>
-          <div class="daybar-row" id="dayBars"></div>
+      <!-- Stats view -->
+      <div id="statsView" style="display:none;">
+        <div class="stats-week-header">
+          <div class="stats-week-total" id="statWeekTotal">--</div>
+          <div class="stats-week-sub">tracked this week</div>
+        </div>
+        <div class="insights-bars" id="insightsChart" style="height:64px; margin-bottom:14px;"></div>
+        <div class="section-header">
+          <span class="section-title">By Category</span>
+          <button id="resetStats" class="pill-btn">Reset</button>
+        </div>
+        <div id="insightsTotals" class="insights-totals" style="margin-bottom:14px;"></div>
+        <div class="section-header">
+          <span class="section-title">Week in Review</span>
+        </div>
+        <div id="digestBody" class="digest-body">
+          <div class="empty-state">Not enough data yet</div>
         </div>
 
-        <div class="card">
-          <div class="label">By Category</div>
-          <div id="catBars" class="groups-container" style="max-height: none;">
-            <div class="empty-state">Nothing tracked yet</div>
-          </div>
+        <div class="section-header" style="margin-top:14px;">
+          <span class="section-title">Tab Trail</span>
+          <span class="settings-row-sub" id="treeMeta"></span>
+        </div>
+        <div class="section-note" style="margin-bottom:8px;">Which tab opened which. Chrome tracks this but never shows it.</div>
+        <div id="tabTree" class="tab-tree">
+          <div class="empty-state">No branching tabs in this window</div>
         </div>
 
-        <div class="card">
-          <div class="label">Right Now</div>
-          <div class="settings-row" style="border-top: none; padding-top: 0;">
-            <div class="settings-row-label">Open tabs</div>
-            <div class="stat-inline" id="statTabCount">0</div>
+        <div class="section-header" style="margin-top:14px;"><span class="section-title">Right Now</span></div>
+        <div class="stat-now-grid">
+          <div class="stat-now-tile">
+            <div class="stat-now-num" id="statTabCount">--</div>
+            <div class="stat-now-label">Open Tabs</div>
           </div>
-          <div class="settings-row">
-            <div class="settings-row-label">Groups</div>
-            <div class="stat-inline" id="statGroupCount">0</div>
+          <div class="stat-now-tile">
+            <div class="stat-now-num" id="statGroupCount">--</div>
+            <div class="stat-now-label">Groups</div>
           </div>
-          <div class="settings-row">
-            <div class="settings-row-label">Tabs in a group</div>
-            <div class="stat-inline" id="statGrouped">0%</div>
+          <div class="stat-now-tile">
+            <div class="stat-now-num" id="statGrouped">--%</div>
+            <div class="stat-now-label">Grouped</div>
+          </div>
+          <div class="stat-now-tile">
+            <div class="stat-now-num stat-now-face" id="statMoodEmoji"></div>
+            <div class="stat-now-label">Mood</div>
           </div>
         </div>
-
-        <button id="resetStats" class="btn btn-secondary btn-block">Reset tracked time</button>
       </div>
 
-      <!-- Find: fuzzy search over open tabs, with an AI fallback for when you
-           can only describe the tab rather than name it -->
-      <div id="searchView" style="display: none;">
-        <input type="text" id="paletteInput" class="text-input" style="width: 100%; margin-bottom: 10px;" placeholder="Search open tabs, or describe one..." />
+      <!-- Find: fuzzy tab search with AI fallback -->
+      <div id="searchView" style="display:none;">
+        <input type="text" id="paletteInput" class="text-input" style="width:100%; margin-bottom:10px;" placeholder="Search tabs, or describe one..." />
         <div id="paletteResults" class="groups-container"></div>
-        <button id="paletteAiSearch" class="btn btn-ai-subtle btn-block" style="margin-top: 10px; display: none;">
-          <span class="ai-spark">✨</span>&nbsp;No match, ask AI to find it
+        <button id="paletteAiSearch" class="btn btn-ai-subtle btn-block" style="margin-top:10px; display:none;">
+          <span class="ai-spark" data-icon="sparkle"></span>&nbsp;No match, ask AI to find it
         </button>
-        <div id="paletteMsg" class="wizard-hint" style="text-align: center;"></div>
+        <div id="paletteMsg" class="wizard-hint" style="text-align:center;"></div>
       </div>
 
-      <!-- Stacklet: reads tab titles and hostnames only, and proposes actions
-           it cannot run until you approve them (unless auto-run is on) -->
-      <div id="stackletView" style="display: none;">
+      <!-- Stacklet companion -->
+      <div id="stackletView" style="display:none;">
         <div class="chat-wrap">
           <div id="chatLog" class="chat-log"></div>
           <div class="stacklet-stage" id="stackletStage">
-            <div class="stacklet-bubble" id="stackletBubble"></div>
-            <div class="stacklet idle" id="stackletFigure"></div>
+            <div class="stacklet idle" id="stackletFigure">
+              <div class="stacklet-bubble" id="stackletBubble"></div>
+            </div>
           </div>
         </div>
-
-        <div class="grid-2" style="margin-bottom: 8px;">
-          <button id="stackletAnalyze" class="btn btn-secondary" style="font-size: 12px;">What am I working on?</button>
-          <button id="stackletTidy" class="btn btn-secondary" style="font-size: 12px;">Suggest a cleanup</button>
+        <div class="grid-2" style="margin-bottom:8px;">
+          <button id="stackletAnalyze" class="btn btn-secondary" style="font-size:12px;">What am I working on?</button>
+          <button id="stackletTidy"    class="btn btn-secondary" style="font-size:12px;">Suggest a cleanup</button>
         </div>
-
         <div class="chat-input-row">
           <input type="text" id="chatInput" class="text-input" placeholder="Ask Stacklet about your tabs..." maxlength="400" />
-          <button id="chatSend" class="btn btn-primary" style="flex-shrink: 0;">Send</button>
+          <button id="chatSend" class="btn btn-primary" style="flex-shrink:0;">Send</button>
         </div>
-        <div id="stackletMsg" class="wizard-hint" style="text-align: center;"></div>
+        <div id="stackletMsg" class="wizard-hint" style="text-align:center;"></div>
+        <!-- Collapsible, since it's a reward shelf rather than something
+             you interact with every session -->
+        <div class="inbox-group" style="margin-top:10px;">
+          <button class="inbox-row" id="toggleAccessories">
+            <span class="inbox-icon" data-icon="sparkle"></span>
+            <span class="inbox-label">Accessories</span>
+            <span class="inbox-count" id="accessoryHint">0/8</span>
+            <span class="inbox-chevron">&#9656;</span>
+          </button>
+          <div class="inbox-body" id="accessoriesBody" style="display:none;">
+            <div class="level-row">
+              <div class="level-badge" id="levelBadge">LV 1</div>
+              <div class="level-bar-wrap">
+                <div class="level-bar" id="levelBar"></div>
+              </div>
+              <div class="level-points" id="levelPoints">0</div>
+            </div>
+            <div class="level-hint" id="levelHint">Use Stax to earn points and unlock accessories.</div>
+            <div class="accessories-grid" id="accessoriesGrid"></div>
+          </div>
+        </div>
       </div>
-    </div>
+
+    </div><!-- /mainScreen -->
 
     <!-- Tutorial overlay: spotlights real elements and types an explanation
          next to each one. Skippable at any point. -->
@@ -302,20 +409,20 @@
     <div id="settingsScreen" class="screen-flush" style="display: none;">
       <div class="settings-header">
         <button id="settingsBack" class="back-btn" title="Back">←</button>
-        <div class="settings-title">Settings</div>
+        <div class="settings-title" data-i18n="settings">Settings</div>
       </div>
 
       <div class="card">
         <div class="label">Preferences</div>
         <div class="settings-row">
           <div>
-            <div class="settings-row-label">Auto-sort on new tab</div>
+            <div class="settings-row-label" data-i18n="autoSort">Auto-sort on new tab</div>
             <div class="settings-row-sub">Local rules only, runs a moment after a tab loads</div>
           </div>
           <input type="checkbox" id="autoSortToggle" class="switch-input" />
         </div>
         <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
-          <span class="settings-row-label">Appearance</span>
+          <span class="settings-row-label" data-i18n="appearance">Appearance</span>
           <div class="button-toggle" id="themeToggle">
             <button class="toggle-btn active" data-value="auto">Auto</button>
             <button class="toggle-btn" data-value="light">Light</button>
@@ -323,7 +430,7 @@
           </div>
         </div>
         <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
-          <span class="settings-row-label">Accent colour</span>
+          <span class="settings-row-label" data-i18n="accentColour">Accent colour</span>
           <div class="settings-row-sub">Applies across the popup, side panel, and Stacklet</div>
           <div class="swatch-grid" id="accentGrid"></div>
         </div>
@@ -359,6 +466,7 @@
 
       <div class="card">
         <div class="label">Custom Domain Rules</div>
+        <div id="suggestedRules"></div>
         <div class="section-note" style="margin-bottom: 10px;">Checked before built-in categories. Comma-separated domains per rule.</div>
         <div id="rulesList"></div>
         <button id="addRule" class="btn btn-secondary btn-block" style="margin-top: 4px;">+ Add Custom Rule</button>
@@ -392,13 +500,15 @@
         <button id="clearKeys" class="btn btn-secondary btn-block" style="margin-top: 12px;">Clear Saved Keys</button>
       </div>
 
-      <button id="saveSettings" class="btn btn-primary btn-block">Save Settings</button>
+      <button id="saveSettings" class="btn btn-primary btn-block" data-i18n="saveSettings">Save Settings</button>
       <div id="settingsMsg" class="wizard-hint" style="text-align: center;"></div>
-      <button id="replayTutorial" class="btn btn-secondary btn-block" style="margin-top: 10px;">Replay the tutorial</button>
+      <button id="replayTutorial" class="btn btn-secondary btn-block" style="margin-top: 10px;" data-i18n="replayTutorial">Replay the tutorial</button>
       <div class="section-note" style="text-align: center; margin-top: 12px;">Stax <span id="versionBadge">v1.3</span></div>
     </div>
 
   </div>
+  <div id="unlockToast" class="unlock-toast"></div>
+  <script src="browser-polyfill.js"></script>
   <script src="shared.js"></script>
   <script src="popup.js"></script>
 </body>

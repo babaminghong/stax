@@ -177,6 +177,68 @@ const key = dayKey(new Date("2026-09-12T14:30:00Z").getTime());
 eq(key, "2026-09-12", "formats as YYYY-MM-DD");
 assert(/^\d{4}-\d{2}-\d{2}$/.test(dayKey()), "current day key is YYYY-MM-DD shaped");
 
+
+// ============================================================
+// Localization integrity
+// ============================================================
+section("localization");
+const fs = require("fs");
+const path = require("path");
+
+function loadLocale(lang) {
+  const p = path.join(__dirname, "..", "_locales", lang, "messages.json");
+  return JSON.parse(fs.readFileSync(p, "utf-8"));
+}
+
+let en, de;
+try {
+  en = loadLocale("en");
+  de = loadLocale("de");
+  assert(true, "both locale files parse as JSON");
+} catch (err) {
+  assert(false, `locale files failed to load: ${err.message}`);
+  en = de = {};
+}
+
+// Every key present in one locale must exist in the other, otherwise a
+// German user silently falls back to the raw key string.
+const enKeys = Object.keys(en).sort();
+const deKeys = Object.keys(de).sort();
+eq(enKeys.filter(k => !deKeys.includes(k)), [], "no keys missing from de");
+eq(deKeys.filter(k => !enKeys.includes(k)), [], "no orphan keys in de");
+
+// Every message needs a non-empty string, and placeholder counts must match
+// between locales or substitution breaks at runtime.
+let emptyCount = 0;
+let placeholderMismatch = [];
+for (const k of enKeys) {
+  if (!en[k]?.message?.trim()) emptyCount++;
+  if (de[k] && !de[k]?.message?.trim()) emptyCount++;
+  const enPh = (en[k]?.message.match(/\$[A-Z_]+\$/g) || []).length;
+  const dePh = (de[k]?.message.match(/\$[A-Z_]+\$/g) || []).length;
+  if (de[k] && enPh !== dePh) placeholderMismatch.push(k);
+}
+eq(emptyCount, 0, "no empty message strings");
+eq(placeholderMismatch, [], "placeholder counts match across locales");
+
+// Any key declaring a placeholder must also declare the placeholders block,
+// or chrome.i18n returns the message with the token still in it.
+const missingPlaceholderBlock = enKeys.filter(k =>
+  /\$[A-Z_]+\$/.test(en[k].message) && !en[k].placeholders
+);
+eq(missingPlaceholderBlock, [], "placeholder keys declare a placeholders block");
+
+// Keys referenced from the HTML must exist in the locale files.
+try {
+  const html = fs.readFileSync(path.join(__dirname, "..", "popup.html"), "utf-8");
+  const used = [...html.matchAll(/data-i18n(?:-title|-placeholder)?="([a-zA-Z]+)"/g)].map(m => m[1]);
+  const unknown = [...new Set(used)].filter(k => !enKeys.includes(k));
+  eq(unknown, [], "every data-i18n key in popup.html exists in en locale");
+  assert(used.length > 20, `popup.html tags a meaningful number of strings (${used.length})`);
+} catch (err) {
+  assert(false, `could not scan popup.html: ${err.message}`);
+}
+
 // ============================================================
 // Summary
 // ============================================================

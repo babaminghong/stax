@@ -1,0 +1,60 @@
+{
+  "extName":        { "message": "Stax - Tab Engine" },
+  "extDesc":        { "message": "Intelligente Tab-Organisation mit lokalen Regeln und optionaler KI." },
+  "cmdQuickSort":   { "message": "Lokale Tab-Sortierung starten" },
+
+  "navTabs":        { "message": "Tabs" },
+  "navStacklet":    { "message": "Stacklet" },
+  "navFind":        { "message": "Suche" },
+  "navStats":       { "message": "Statistik" },
+
+  "tagline":        { "message": "Automatische Tab-Verwaltung" },
+  "smartSort":      { "message": "Smart Sort" },
+  "smartSortSub":   { "message": "Sortiert per lokaler Regeln, KI übernimmt den Rest" },
+
+  "statTabs":       { "message": "Tabs" },
+  "statGroups":     { "message": "Gruppen" },
+  "statGrouped":    { "message": "Gruppiert" },
+  "statMood":       { "message": "Laune" },
+
+  "activeGroups":   { "message": "Aktive Gruppen" },
+  "newGroup":       { "message": "+ Gruppe" },
+  "ungroupAll":     { "message": "Alle auflösen" },
+  "noGroups":       { "message": "Noch keine Gruppen. Starte mit Smart Sort." },
+
+  "tools":          { "message": "Werkzeuge" },
+  "toolDedupe":     { "message": "Duplikate" },
+  "toolSuspend":    { "message": "Pausieren" },
+  "toolFocus":      { "message": "Fokus" },
+  "toolSaveSession":{ "message": "Sitzung" },
+  "toolArchive":    { "message": "Archivieren" },
+  "toolMerge":      { "message": "Zusammenführen" },
+  "toolSplit":      { "message": "Aufteilen" },
+  "toolExport":     { "message": "Export MD" },
+  "aiResort":       { "message": "Alles mit KI neu sortieren" },
+
+  "saved":          { "message": "Gespeichert" },
+  "addReadLater":   { "message": "+ Später lesen" },
+  "sessions":       { "message": "Sitzungen" },
+  "readLater":      { "message": "Später lesen" },
+  "recentlyClosed": { "message": "Kürzlich geschlossen" },
+
+  "settings":       { "message": "Einstellungen" },
+  "preferences":    { "message": "Einstellungen" },
+  "autoSort":       { "message": "Auto-Sortierung bei neuem Tab" },
+  "autoSortSub":    { "message": "Nur lokale Regeln, läuft kurz nach dem Laden" },
+  "appearance":     { "message": "Erscheinungsbild" },
+  "themeAuto":      { "message": "Auto" },
+  "themeLight":     { "message": "Hell" },
+  "themeDark":      { "message": "Dunkel" },
+  "accentColour":   { "message": "Akzentfarbe" },
+  "accentSub":      { "message": "Gilt für Popup, Seitenleiste und Stacklet" },
+  "saveSettings":   { "message": "Einstellungen speichern" },
+  "replayTutorial": { "message": "Tutorial erneut ansehen" },
+
+  "sortedGroups":   { "message": "$COUNT$ Gruppe(n) erstellt.", "placeholders": { "count": { "content": "$1" } } },
+  "sortFailed":     { "message": "Sortierung fehlgeschlagen, bitte erneut versuchen." },
+  "noApiKey":       { "message": "Kein API-Key gesetzt. Füge einen in den Einstellungen hinzu." },
+  "undo":           { "message": "Rückgängig" },
+  "nothingToUndo":  { "message": "Nichts zum Rückgängigmachen." }
+}
