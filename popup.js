@@ -1049,10 +1049,9 @@ async function initSettingsScreen() {
   });
 }
 // ---- Stacklet: companion chat + action confirmation ----
-// Conversation history lives only for as long as the popup is open. Persisting
-// it would mean writing what the user works on to disk, which is more than a
-// tab manager needs to keep, and the popup's lifetime matches how the feature
-// is actually used anyway.
+// History is persisted across popup closes (see stacklet.js for the storage
+// rules). stackletHistory is the working copy for this popup instance; every
+// turn is also written through so nothing is lost when the popup closes.
 let stackletHistory = [];
 let stackletInitialized = false;
 
@@ -1099,7 +1098,12 @@ function appendActionProposal(action, windowId) {
     const res = await sendMessage({ type: "STACKLET_RUN_ACTION", action, windowId });
     card.classList.add("resolved");
     btns.innerHTML = `<span class="action-resolved-note">${res?.ok ? escapeHtml(res.detail || "Done") : "Couldn't run that"}</span>`;
-    if (res?.ok) earn("action_run");
+    if (res?.ok) {
+      earn("action_run");
+      // Log the outcome, not the proposal: on reload you want to see what
+      // actually happened, not a dead button you can't press again.
+      sendMessage({ type: "APPEND_CHAT", entries: [{ role: "system", text: `Ran: ${action.label} (${res.detail || "done"})` }] });
+    }
     loadActiveGroups();
   });
 
@@ -1136,6 +1140,7 @@ async function sendToStacklet(message) {
   msgLine.textContent = "";
   appendChatMessage(message, "user");
   stackletHistory.push({ role: "user", text: message });
+  sendMessage({ type: "APPEND_CHAT", entries: [{ role: "user", text: message }] });
   input.value = "";
   input.disabled = true;
   sendBtn.disabled = true;
@@ -1167,6 +1172,7 @@ async function sendToStacklet(message) {
 
   appendChatMessage(res.reply, "bot");
   stackletHistory.push({ role: "assistant", text: res.reply });
+  sendMessage({ type: "APPEND_CHAT", entries: [{ role: "assistant", text: res.reply }] });
   earn("chat");
 
   for (const action of res.actions || []) {
@@ -1216,6 +1222,14 @@ async function initStacklet() {
         sendToStacklet(input.value);
       }
     });
+    document.getElementById("clearChat")?.addEventListener("click", async () => {
+      await sendMessage({ type: "CLEAR_CHAT" });
+      stackletHistory = [];
+      const log = document.getElementById("chatLog");
+      if (log) log.innerHTML = "";
+      stackletSay("Forgotten. Clean slate.");
+    });
+
     document.getElementById("stackletAnalyze")?.addEventListener("click", () => {
       sendToStacklet("Look at my open tabs and tell me what I seem to be working on right now.");
     });
@@ -1224,11 +1238,31 @@ async function initStacklet() {
     });
 
     const { stackletAutoRun = false } = await chrome.storage.sync.get(["stackletAutoRun"]);
-    if (stackletAutoRun) stackletSay("Auto-run is on, so I'll just get on with things.");
-    else stackletSay("Hey! Ask me anything about your tabs.");
+
+    // Replay the saved conversation. Only greet when there's nothing to
+    // restore, otherwise you get a "hello" on top of a conversation you were
+    // already in the middle of.
+    const restored = await sendMessage({ type: "LOAD_CHAT" });
+    const past = restored?.messages || [];
+    if (past.length) {
+      stackletHistory = past.map(m => ({ role: m.role, text: m.text }));
+      past.forEach(m => {
+        appendChatMessage(m.text, m.role === "user" ? "user" : m.role === "system" ? "system" : "bot");
+      });
+      // Separator so it's obvious where the old conversation ends.
+      const gap = document.createElement("div");
+      gap.className = "chat-resume";
+      gap.textContent = relativeDay(past[past.length - 1].at);
+      document.getElementById("chatLog")?.appendChild(gap);
+    } else if (stackletAutoRun) {
+      stackletSay("Auto-run is on, so I'll just get on with things.");
+    } else {
+      stackletSay("Hey! Ask me anything about your tabs.");
+    }
+
     await syncStackletMood();
     loadAccessories();
-    if (log && !log.children.length) {
+    if (log && !log.children.length && !past.length) {
       appendChatMessage(
         stackletAutoRun
           ? "Hey, I'm Stacklet. Auto-run is on, so I'll carry out what I suggest without asking. Say the word."
@@ -2581,4 +2615,16 @@ async function loadSnoozed() {
     console.warn("Stax: loadSnoozed failed", err);
     list.innerHTML = `<div class="empty-state">Couldn't load snoozed tabs.</div>`;
   }
+}
+
+// "Earlier today" / "Yesterday" / "Mon 14 Sep" for the resume divider.
+function relativeDay(ts) {
+  if (!ts) return "Earlier";
+  const d = new Date(ts);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return "Earlier today";
+  const y = new Date(now);
+  y.setDate(y.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 }

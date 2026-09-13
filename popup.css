@@ -2386,3 +2386,38 @@ body {
   font-size: 10px;
   font-weight: 700;
 }
+
+/* Divider marking where a restored conversation left off */
+.chat-resume {
+  align-self: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--tertiaryLabel);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 6px 0 2px;
+  position: relative;
+  width: 100%;
+  text-align: center;
+}
+.chat-resume::before,
+.chat-resume::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 28%;
+  height: 1px;
+  background: var(--border);
+}
+.chat-resume::before { left: 0; }
+.chat-resume::after  { right: 0; }
+
+.chat-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  min-height: 20px;
+}
+.chat-footer .wizard-hint { text-align: right; flex: 1; margin: 0; }

@@ -258,3 +258,72 @@ async function runStackletAction(action, windowId) {
     return { ok: false, error: err.message || "action-failed" };
   }
 }
+
+
+// ---- Chat history persistence ----
+// Conversations used to live only as long as the popup was open, which meant
+// closing it lost everything Stacklet had told you and every action you'd
+// approved. Persisted here instead.
+//
+// This does mean writing what you work on to disk, so it's bounded on both
+// axes: a hard message cap, and an age cutoff. Plus a clear command, because
+// "delete my history" should never require uninstalling.
+const CHAT_KEY = "stax_chat_history";
+const CHAT_MAX_MESSAGES = 60;
+const CHAT_MAX_AGE_DAYS = 30;
+
+async function loadChatHistory() {
+  try {
+    const { [CHAT_KEY]: raw = [] } = await chrome.storage.local.get([CHAT_KEY]);
+    const cutoff = Date.now() - CHAT_MAX_AGE_DAYS * 86400000;
+    const fresh = raw.filter(m => (m.at || 0) >= cutoff);
+    // Prune on read rather than with a scheduled job: it costs nothing here
+    // and there's no worker lifetime to depend on.
+    if (fresh.length !== raw.length) {
+      await chrome.storage.local.set({ [CHAT_KEY]: fresh });
+    }
+    return { ok: true, messages: fresh };
+  } catch (err) {
+    console.warn("Stax: loadChatHistory failed", err);
+    return { ok: true, messages: [] };
+  }
+}
+
+async function appendChatHistory(entries) {
+  try {
+    const { [CHAT_KEY]: raw = [] } = await chrome.storage.local.get([CHAT_KEY]);
+    const stamped = entries.map(e => ({ ...e, at: e.at || Date.now() }));
+    // Keep the newest CHAT_MAX_MESSAGES. Trimming from the front means a long
+    // session loses its oldest turns rather than refusing to save new ones.
+    const merged = [...raw, ...stamped].slice(-CHAT_MAX_MESSAGES);
+    await chrome.storage.local.set({ [CHAT_KEY]: merged });
+    return { ok: true };
+  } catch (err) {
+    console.warn("Stax: appendChatHistory failed", err);
+    return { ok: false };
+  }
+}
+
+async function clearChatHistory() {
+  try {
+    await chrome.storage.local.remove([CHAT_KEY]);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false };
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "LOAD_CHAT") {
+    loadChatHistory().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "APPEND_CHAT") {
+    appendChatHistory(msg.entries).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "CLEAR_CHAT") {
+    clearChatHistory().then(sendResponse);
+    return true;
+  }
+});
