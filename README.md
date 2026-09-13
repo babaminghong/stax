@@ -1,253 +1,195 @@
 # Stax v1.4.0
 
-> **The Intelligent, Privacy-First Tab Manager & AI Browsing Companion for Chrome & Firefox.**
+> A privacy-first tab manager and AI browsing companion for Chrome and Firefox.
 
-Stax transforms browser tab chaos into structured, productive workspaces. Built on **Manifest V3**, Stax combines lightning-fast local pattern rules with optional **Anthropic (Claude)** and **Google Gemini** AI power to organize tabs, reduce memory usage, track browsing habits, and maintain focus, all while keeping your data strictly on your device.
+Stax sorts your open tabs into colour-coded groups. It runs on local rules by default, so it's instant and works offline, and you can plug in your own Anthropic or Gemini key if you want AI to handle the tabs the rules can't figure out. Nothing about your browsing leaves your device unless you turn that on yourself.
 
 ---
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
-
-[![Browsers](https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Edge%20%7C%20Brave-orange.svg)](#-installation)
-
-[![Privacy First](https://img.shields.io/badge/Privacy-100%25%20Local-green.svg)](#-privacy--security)
-
+[![Browsers](https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Edge%20%7C%20Brave-orange.svg)](#installation--setup)
+[![Privacy First](https://img.shields.io/badge/Privacy-100%25%20Local-green.svg)](#privacy--security)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## Why Stax? That's the question you may ask yourself now.
 
-Modern browsing means dozens of open tabs scattered across multiple windows. Standard tab managers either require manual sorting or compromise your privacy by sending full page content to remote servers.
+You end up with thirty tabs across two windows and no idea what's in any of them. Most tab managers either make you sort everything by hand, or they read your page content and send it off somewhere.
 
-**Stax is built differently:**
+Stax does neither.
 
-* **Instant & Offline First:** Over 90% of your tabs are categorized instantly using built-in TLD, hostname, path, and title clustering rules, with no network requests required.
-
-* **Hybrid AI Engine:** Unsure of a tab? Stax optionally calls Claude or Gemini using *only* tab metadata (title & domain), never page contents, cookies, or form data.
-
-* **Resource Optimization:** Free up gigabytes of RAM by automatically suspending or archiving inactive tabs without losing your place.
-
-* **Companion Assistant (Stacklet):** Chat with your browser assistant to perform multi-step tab actions, research topics, or clean up clutter via natural language.
+Most tabs get sorted instantly by domain and URL rules that run on your machine, with no network request at all. For the ones that don't match anything, AI is optional and only ever sees the tab title and hostname. Never the page, never cookies, never form data.
 
 ---
 
 ## Key Features
 
-### 1. Hybrid Tab Categorization & Smart Sorting
+### Hybrid sorting
 
-* **Built-in Rule Categories:** Automatically groups tabs into standard categories like *AI & ML*, *Development*, *Social & Media*, *Productivity*, *Communication*, *Finance*, *Shopping*, *Entertainment*, *News*, and *Travel*.
+Tabs get grouped into categories like Development, Social, Productivity, Finance, Shopping, News and Travel.
 
-* **Structural Pattern Classifier:** Identifies domains by TLDs (`.dev`, `.shop`, `.bank`), URL path structures (`/cart`, `/checkout`, `/pull`), and hostname tokens.
+The classifier checks exact domains first, then structural patterns (`.shop` and `.bank` domains, `/cart` and `/checkout` paths, `/pull/` on git hosts), then shared words across tab titles. A group of React Router pages gets named "React Router" rather than the hostname.
 
-* **Smart Cluster Naming:** Fallback groups intelligently extract shared context across tab titles, for example, naming a group *"React Router"* instead of raw hostnames.
+Anything still unmatched goes to AI, if you've set a key.
 
-* **AI Fallback:** Uses Anthropic Sonnet or Gemini Flash to categorize edge-case tabs into clean, color-coded groups.
+### Duplicate cleanup
 
-### 2. Smart URL Normalization & Deduplication
+Strips tracking parameters like `utm_source`, `fbclid` and `gclid` before comparing, so the same article opened from three different links counts as one tab. Trailing slashes, fragments and parameter order are ignored too.
 
-* **Param Stripping:** Strips tracking junk (`utm_source`, `fbclid`, `gclid`, `ref`, etc.) to match identical pages opened from different sources.
+### Stacklet
 
-* **Canonical Matching:** Ignores trailing slashes, fragments (`#`), and URL parameter reordering.
+A companion who sits on the logo. He can group tabs, suggest cleanups, save sessions, and open research material for you.
 
-* **Focus Protection:** Keeps the oldest open tab during deduplication to prevent focus jumps.
+He proposes actions and waits for you to approve them, unless you switch that off in settings. He can only run a fixed list of tab operations, so there's nothing he can do that Stax itself can't.
 
-### 3. Stacklet, AI Browsing Companion
+He also falls asleep if you ignore him and unlocks accessories as you use the extension. That part isn't useful, it's just fun.
 
-* **Context-Aware Assistance:** Tailors recommendations based on user profiles (*Developer*, *Marketing*, *Research*, *Design*, *General*).
+### Tab tree
 
-* **Safe Action Execution:** Proposes actions with interactive confirmation cards (`group_tabs`, `close_tabs`, `suspend_tabs`, `rename_group`, `save_session`, `open_tabs`).
+Chrome quietly records which tab opened which, and nothing surfaces it. Stax reconstructs the trail so you can see how a research session actually branched.
 
-* **Safe Tab Opening:** Can research and open curated sets of verified HTTP/HTTPS links without breaking context.
+### Memory saving
 
-### 4. Tab Tree Lineage & Hierarchy
+Tabs you haven't touched in 20 minutes get discarded to free memory. Click one and it reloads where you left it. Anything playing audio is left alone.
 
-* Reconstructs parent-child relationship trees using browser `openerTabId` history.
+### Focus mode
 
-* Easily follow research trails and see where child tabs originated.
+Collapses every group except the one you're working in, and puts them all back the way they were when you exit.
 
-### 5. Memory Saver & Inactive Tab Suspension
+### Sessions and Read Later
 
-* Automatically discards inactive tabs (>20 minutes idle) to free memory.
+Save a window as a named session, including group names and colours, and reopen it later even after a restart.
 
-* Preserves tab position and title, clicking any suspended tab immediately restores it.
+Tabs you haven't opened in a week can be archived to a local Read Later list instead of just closed, so you stop hoarding tabs out of guilt.
 
-### 6. Focus Mode
+### Natural language search
 
-* Keeps your active task front-and-center while collapsing all other tab groups.
+Search your tabs by typing part of a title, or describe one ("where was I looking at flight status") and let AI find it.
 
-* Optionally suspends non-active tab groups during deep work sessions and restores your workspace state on exit.
+### Time tracking
 
-### 7. Sessions & Read-Later Archive
+Tracks time per category, locally. Guards against rapid tab switches and machine sleep so the numbers mean something. Data is pruned after 21 days.
 
-* **Session Snapshots:** Save named snapshots of window tab states, including group colors and names, to reopen later or across browser restarts.
+### Markdown export
 
-* **Stale Tab Auto-Archiving:** Automatically close tabs inactive for extended periods, for example, >7 days, into a local Read-Later archive without losing URLs.
-
-### 8. Natural Language Tab Search
-
-* Search your tab stack using natural language queries like *"Where was I looking at flight status?"* or *"Find the PR review tab"*.
-
-### 9. Local Privacy-First Time Tracking
-
-* Tracks time spent across categories locally.
-
-* Includes guards against micro-switches and machine sleep cycles. Data auto-prunes after 21 days.
-
-### 10. One-Click Markdown Export
-
-* Export your entire window's tab structure formatted neatly as a Markdown document for notes, summaries, or team sharing.
-
-### 11. Tab Hygiene & Gamification
-
-* Track your **Tab Hygiene Score** and Stacklet's mood.
-
-* Earn points for organizing, saving memory, and keeping tab clutter low to unlock fun companion accessories!
+Copies your whole window as a grouped markdown link list, ready to paste into notes.
 
 ---
 
-## How It Works Architecture
+## How it works
 
-Stax uses a multi-tier classification pipeline designed for maximum speed and zero data leakage:
+Four passes. Each tab stops at the first one that matches.
 
 ```text
 [ Incoming Tab ]
-
-│
-
-▼
-
-┌───────────────────────────┐
-│  Tier 1: Local Rules      │ (Match: Custom / Built-in Domain List) ► [ Group Created ]
-└─────────────┬─────────────┘
-│ (No match)
-▼
-
-┌───────────────────────────┐
-│  Tier 2: Pattern Signals  │ (Match: TLD / Host / Path / Title) ► [ Group Created ]
-└─────────────┬─────────────┘
-│ (No match)
-▼
-
-┌───────────────────────────┐
-│  Tier 3: Smart Clustering │ (Match: Shared Title Tokens) ► [ Group Created ]
-└─────────────┬─────────────┘
-│ (Leftover Tabs & AI Enabled)
-▼
-
-┌───────────────────────────┐
-│  Tier 4: Metadata AI      │ (Claude / Gemini JSON Batching) ► [ Group Created ]
-└───────────────────────────┘
+       |
+       v
++---------------------------+
+|  1. Custom rules          |  your own domain rules  -> grouped
++-------------+-------------+
+              | no match
+              v
++---------------------------+
+|  2. Built-in domains      |  known sites            -> grouped
++-------------+-------------+
+              | no match
+              v
++---------------------------+
+|  3. Pattern signals       |  TLD / path / title     -> grouped
++-------------+-------------+
+              | leftovers, and only if a key is set
+              v
++---------------------------+
+|  4. AI on metadata        |  Claude or Gemini       -> grouped
++---------------------------+
 ```
+
+Domain matching is exact, not substring. `amazon.com.evil.ru` can never match `amazon.com`.
 
 ---
 
-## ⌨ Keyboard Shortcuts
+## Keyboard Shortcuts
 
-Stax includes built-in keyboard command triggers, customizable via `chrome://extensions/shortcuts` or `about:addons`:
+Chrome only allows four default bindings per extension, so the rest are unassigned. You can set them yourself at `chrome://extensions/shortcuts`.
 
-| Command            | Default Trigger    | Action Description                                 |
-| :----------------- | :----------------- | :------------------------------------------------- |
-| `quick-sort`       | `Alt + Shift + S`  | Run Hybrid Smart Sort on current window            |
-| `quick-find`       | `Alt + Shift + F`  | Open natural language tab search                   |
-| `toggle-focus`     | `Alt + Shift + Z`  | Toggle Focus Mode (collapse background groups)     |
-| `dedupe-tabs`      | `Alt + Shift + D`  | Deduplicate tabs across windows                    |
-| `suspend-inactive` | None               | Suspend tabs inactive for >20 mins                 |
-| `save-session`     | None               | Snapshot current window tabs and groups            |
-| `archive-stale`    | None               | Move inactive tabs (>7 days) to Read-Later archive |
-| `undo-last`        | `Ctrl + Shift + Z` | Undo last sort or tab closure action               |
+| Command | Default | What it does |
+| :--- | :--- | :--- |
+| `quick-sort` | `Alt+S` | Smart Sort the current window |
+| `quick-find` | `Alt+F` | Open tab search |
+| `toggle-focus` | `Alt+D` | Toggle focus mode |
+| `dedupe-tabs` | `Alt+X` | Close duplicate tabs |
+| `suspend-inactive` | none | Suspend tabs idle over 20 minutes |
+| `save-session` | none | Save the current window as a session |
+| `archive-stale` | none | Archive tabs older than 7 days |
+| `undo-last` | none | Undo the last Stax action |
 
 ---
 
 ## Installation & Setup
 
-### 1. Developer / Unpacked Installation
-
-#### Chrome / Brave / Edge / Opera
-
-1. Clone this repository:
-
 ```bash
-git clone https://github.com/your-username/stax.git
+git clone https://github.com/babaminghong/stax.git
 cd stax
 ```
 
-2. Build the extension bundle, if editing source files:
+### Chrome, Brave, Edge, Opera
+
+1. Open `chrome://extensions`
+2. Turn on Developer mode
+3. Click Load unpacked and select the `stax` folder
+
+### Firefox 139+
+
+Firefox needs its own manifest, and the tab group API Stax depends on only landed in Firefox 139.
 
 ```bash
-node build.js
+cp manifest.json manifest.chrome.json
+cp manifest.firefox.json manifest.json
 ```
 
-3. Open `chrome://extensions/` in your browser.
+Then open `about:debugging#/runtime/this-firefox` and load it as a temporary add-on. See [browsers.md](browsers.md) for the full list of differences.
 
-4. Enable **Developer mode** using the top-right toggle.
-
-5. Click **Load unpacked** and select the root project directory.
-
-#### Firefox
-
-1. Open `about:debugging#/runtime/this-firefox`.
-
-2. Click **Load Temporary Add-on...**.
-
-3. Select `manifest.json` from the project directory.
+If you change anything in `modules/`, run `node build.js` before reloading. That bundles them into `background.js`.
 
 ---
 
-## AI Configuration (Optional)
+## AI Configuration (optional)
 
-Stax is fully functional offline using local rules. To enable AI Tab Sorting, Stacklet Companion Chat, and Natural Language Tab Search:
+Everything except the AI features works without a key.
 
-1. Click the **Stax** toolbar icon to open the panel.
+1. Open the Stax popup and go to Settings
+2. Pick Anthropic (`claude-sonnet-4-6`) or Gemini (`gemini-flash-latest`)
+3. Paste your key and save
 
-2. Go to **Settings / Preferences**.
-
-3. Choose your AI provider:
-
-* **Anthropic:** Input your Claude API Key (`claude-sonnet-4-6`).
-
-* **Google Gemini:** Input your Gemini API Key (`gemini-flash-latest`).
-
-4. Click **Save**. API keys are stored securely in `chrome.storage.local`.
+Keys are kept in `chrome.storage.local`, which means they stay on that device and never sync. They're stored as plain text, the same way every extension does it, so treat the key the way you would anywhere else.
 
 ---
 
-## Privacy & Security First
+## Privacy & Security
 
-Stax was engineered around strict data minimization:
+Stax reads tab titles and URLs. That's the whole list.
 
-* **No Page Content Scraping:** Stax never reads DOM content, page HTML, forms, inputs, or cookies.
-
-* **Metadata Only:** Stax only processes tab titles and URLs.
-
-* **Zero Remote Analytics:** All time tracking, statistics, tab lineage, and custom rules are saved locally in browser storage (`chrome.storage.local` and `chrome.storage.sync`).
-
-* **Strict Allowlist:** Stacklet actions are sandboxed to explicit tab management operations. Untrusted protocols (`javascript:`, `data:`, `file:`) are blocked.
+- No page content, DOM, forms, inputs or cookies are ever read
+- No analytics, no telemetry, nothing phones home
+- Time tracking, stats, tab lineage and rules all stay in browser storage
+- If you enable AI, only tab titles and hostnames are sent, and only to the provider you picked
+- Stacklet's actions are limited to an allowlist. Anything outside it is dropped before it runs, and `javascript:`, `data:` and `file:` URLs are blocked
 
 ---
 
-## 🤝 Contributing
+## Development
 
-Contributions are welcome! Please feel free to submit a Pull Request or open an Issue.
+```
+modules/      background logic, bundled into background.js by build.js
+tests/        run with: node tests/run.js
+_locales/     English and German strings
+```
 
-1. Fork the Project
-
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-
-3. Build and test your changes (`node build.js`)
-
-4. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-
-5. Push to the Branch (`git push origin feature/AmazingFeature`)
-
-6. Open a Pull Request
+Run `node build.js` after editing anything in `modules/`, then reload the extension.
 
 ---
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-<p align="center">Crafted with ❤️ for tab hoarders and power users everywhere.</p>
+MIT. See [LICENSE](LICENSE).
