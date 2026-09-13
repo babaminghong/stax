@@ -158,12 +158,52 @@ async function stackletChat(windowId, userMessage, history = []) {
   const res = await callStackletProvider(prompt);
   if (!res.ok) return res;
 
+  const { stackletAutoRun = false } = await chrome.storage.sync.get(["stackletAutoRun"]);
+
   try {
     const { reply, actions } = parseStackletReply(res.raw);
-    const { stackletAutoRun = false } = await chrome.storage.sync.get(["stackletAutoRun"]);
     return { ok: true, reply, actions, autoRun: !!stackletAutoRun };
   } catch (err) {
-    console.warn("Stax: could not parse Stacklet reply", err);
+    // Malformed JSON is by far the most common failure a user actually sees,
+    // and it's usually recoverable: the model wrapped the object in prose, or
+    // trailed a comma. Hand the broken output and the parser error back once
+    // and ask for just the JSON. One retry only, so a model that's genuinely
+    // confused can't cost the user an unbounded number of calls.
+    console.warn("Stax: Stacklet reply did not parse, attempting repair", err);
+
+    const repairPrompt = [
+      "Your previous response could not be parsed as JSON.",
+      `The parser said: ${err.message}`,
+      "",
+      "Here is what you sent:",
+      res.raw.slice(0, 1500),
+      "",
+      "Resend the same content as valid raw JSON only. No markdown fences, no",
+      "text before or after the object. Shape:",
+      '{"reply":"...","actions":[]}',
+    ].join("\n");
+
+    const retry = await callStackletProvider(repairPrompt);
+    if (retry.ok) {
+      try {
+        const { reply, actions } = parseStackletReply(retry.raw);
+        return { ok: true, reply, actions, autoRun: !!stackletAutoRun, repaired: true };
+      } catch (err2) {
+        console.warn("Stax: repair attempt also failed to parse", err2);
+      }
+    }
+
+    // Last resort: if there's readable prose in the response, show it rather
+    // than a generic error. A useful sentence with no actions attached beats
+    // "I got confused there."
+    const salvaged = res.raw
+      .replace(/```[a-z]*|```/g, "")
+      .replace(/[{}[\]"]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (salvaged.length > 25) {
+      return { ok: true, reply: salvaged.slice(0, 400), actions: [], autoRun: false, degraded: true };
+    }
     return { ok: false, error: "bad-response" };
   }
 }

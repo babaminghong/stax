@@ -1175,6 +1175,14 @@ async function sendToStacklet(message) {
   sendMessage({ type: "APPEND_CHAT", entries: [{ role: "assistant", text: res.reply }] });
   earn("chat");
 
+  // When the model's first response was unparseable we either repaired it or
+  // salvaged the prose. Say so rather than pretending it went cleanly: in the
+  // degraded case any actions it wanted are gone, and the user should know
+  // why nothing happened.
+  if (res.degraded) {
+    appendChatMessage("That reply came back malformed, so I could only show the text. Ask again if you wanted me to do something.", "system");
+  }
+
   for (const action of res.actions || []) {
     if (res.autoRun) {
       // Auto-run is opt-in and off by default. Even here the result is
@@ -1517,7 +1525,15 @@ const TUTORIAL_STEPS = [
   },
   {
     target: "mergeWindowsBtn", view: "dashboard",
-    text: "Merge pulls every window into one. Split does the opposite, giving each group its own window. Handy either side of a big cleanup."
+    text: "Merge pulls every browser window into one. Useful when you've ended up with tabs scattered across four windows and lost track."
+  },
+  {
+    target: "splitWindowsBtn", view: "dashboard",
+    text: "Split does the opposite: every group gets its own window. Good after a big sort when you want one window per project."
+  },
+  {
+    target: "snoozeBtn", view: "dashboard",
+    text: "Snooze closes a tab now and reopens it when you pick. Tonight, tomorrow morning, this weekend. It survives a browser restart."
   },
   {
     target: "exportMdBtn", view: "dashboard",

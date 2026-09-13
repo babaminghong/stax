@@ -239,6 +239,54 @@ try {
   assert(false, `could not scan popup.html: ${err.message}`);
 }
 
+
+// ============================================================
+// Tutorial coverage
+// ============================================================
+// This exists because the tutorial silently fell out of sync twice: Snooze
+// shipped with no step at all, and Split Windows was only mentioned inside
+// the Merge step rather than being highlighted. Nothing caught either.
+// Now adding a tool without a tutorial step fails the suite.
+section("tutorial coverage");
+
+const popupJs = fs.readFileSync(path.join(__dirname, "..", "popup.js"), "utf-8");
+const popupHtml = fs.readFileSync(path.join(__dirname, "..", "popup.html"), "utf-8");
+
+const stepsBlock = popupJs.slice(
+  popupJs.indexOf("const TUTORIAL_STEPS = ["),
+  popupJs.indexOf("];", popupJs.indexOf("const TUTORIAL_STEPS = ["))
+);
+const stepTargets = [...stepsBlock.matchAll(/target:\s*"([^"]+)"/g)].map(m => m[1]);
+
+// Every tile in the Tools grid is a user-facing feature and needs its own step.
+const toolIds = [...popupHtml.matchAll(/class="tool-tile"\s+id="([a-zA-Z]+)"/g)].map(m => m[1]);
+assert(toolIds.length >= 8, `found the tool tiles (${toolIds.length})`);
+eq(toolIds.filter(id => !stepTargets.includes(id)), [], "every tool tile has a tutorial step");
+
+// The inbox rows (Sessions, Read Later, Snoozed, Recently Closed, Accessories)
+// are collapsible so they're easy to forget. At least one must be covered,
+// since the step text explains the whole section.
+const inboxIds = [...popupHtml.matchAll(/class="inbox-row"\s+id="([a-zA-Z]+)"/g)].map(m => m[1]);
+assert(inboxIds.length >= 4, `found the inbox rows (${inboxIds.length})`);
+assert(
+  inboxIds.some(id => stepTargets.includes(id)),
+  "at least one inbox row is covered by the tutorial"
+);
+
+// Every target must resolve to a real element, or the spotlight lands in the
+// corner with no visible error.
+const htmlIds = new Set([...popupHtml.matchAll(/id="([a-zA-Z_]+)"/g)].map(m => m[1]));
+eq(stepTargets.filter(t => !htmlIds.has(t)), [], "every tutorial target exists in popup.html");
+
+// Steps that switch view must name a view the switcher actually knows.
+const declaredViews = [...stepsBlock.matchAll(/view:\s*"([^"]+)"/g)].map(m => m[1]);
+const knownViews = ["dashboard", "stacklet", "search", "stats"];
+eq([...new Set(declaredViews)].filter(v => !knownViews.includes(v)), [], "every step view is a real view");
+
+// The step counter shows "OF N", so an empty or tiny list means the tutorial
+// silently stopped covering the app.
+assert(stepTargets.length >= 20, `tutorial covers a meaningful number of targets (${stepTargets.length})`);
+
 // ============================================================
 // Summary
 // ============================================================
