@@ -150,6 +150,7 @@ const ICON_PATHS = {
   plus:      '<path d="M12 5v14M5 12h14"/>',
   close:     '<path d="M6 6l12 12M18 6L6 18"/>',
   chevron:   '<path d="M9 5l7 7-7 7"/>',
+  clock:     '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   refresh:   '<path d="M20 6v5h-5"/><path d="M19.4 11A7.5 7.5 0 006 7.5L4 9.5"/><path d="M4 18v-5h5"/><path d="M4.6 13a7.5 7.5 0 0013.4 3.5l2-2"/>',
 };
 

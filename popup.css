@@ -2269,3 +2269,120 @@ body {
 .suggest-domains { font-weight: 800; }
 .suggest-btns { display: flex; gap: 7px; }
 .suggest-btns .btn { flex: 1; height: 30px; font-size: 11.5px; }
+
+/* ================= Snooze sheet ================= */
+/* An overlay rather than an inline expander, so opening it can't reflow the
+   dashboard underneath or push the button you just clicked off-screen. */
+.snooze-sheet {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 20, 0.6);
+  z-index: 95;
+  display: none;
+  align-items: flex-end;
+  animation: sheetFade 0.18s ease both;
+}
+.snooze-sheet.show { display: flex; }
+@keyframes sheetFade { from { opacity: 0; } to { opacity: 1; } }
+
+.snooze-sheet-inner {
+  width: 100%;
+  background: var(--card-bg-solid);
+  border-top: 1px solid var(--separator);
+  border-radius: 20px 20px 0 0;
+  padding: 16px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
+  animation: sheetUp 0.28s var(--spring) both;
+}
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.snooze-sheet-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--label);
+  margin-bottom: 11px;
+}
+.snooze-options { display: flex; flex-direction: column; gap: 5px; }
+.snooze-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--label);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s var(--ease-out);
+}
+.snooze-opt:hover {
+  background: var(--systemGrey5);
+  border-color: var(--separator);
+  transform: translateX(2px);
+}
+/* The resolved time sits alongside each preset, so "this weekend" doesn't
+   require the user to work out what date that actually is. */
+.snooze-when {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tertiaryLabel);
+  white-space: nowrap;
+}
+
+.snoozed-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.snoozed-item:hover { background: var(--systemGrey5); }
+.snoozed-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.snoozed-when {
+  font-size: 10.5px;
+  color: var(--chip-purple-ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ================= Find keyboard navigation ================= */
+.palette-item.selected {
+  background: var(--systemGrey5);
+  border-color: var(--accent-yellow);
+  outline: 2px solid var(--accent-yellow);
+  outline-offset: -2px;
+}
+.palette-hint {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 10.5px;
+  color: var(--tertiaryLabel);
+}
+.palette-hint kbd {
+  background: var(--systemGrey5);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}

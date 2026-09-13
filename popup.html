@@ -222,6 +222,10 @@
             <span class="tool-tile-icon" data-icon="split"></span>
             <span class="tool-tile-label" data-i18n="toolSplit">Split Windows</span>
           </button>
+          <button class="tool-tile" id="snoozeBtn"        title="Close this tab now, reopen it later">
+            <span class="tool-tile-icon" data-icon="clock"></span>
+            <span class="tool-tile-label">Snooze</span>
+          </button>
           <button class="tool-tile" id="exportMdBtn"      title="Copy all tabs as a markdown link list">
             <span class="tool-tile-icon" data-icon="clipboard"></span>
             <span class="tool-tile-label" data-i18n="toolExport">Export MD</span>
@@ -266,6 +270,16 @@
             <div id="archiveList">
               <div class="empty-state">Nothing saved yet</div>
             </div>
+          </div>
+
+          <button class="inbox-row" id="toggleSnoozed">
+            <span class="inbox-icon" data-icon="clock"></span>
+            <span class="inbox-label">Snoozed</span>
+            <span class="inbox-count" id="snoozedCount">0</span>
+            <span class="inbox-chevron">&#9656;</span>
+          </button>
+          <div class="inbox-body" id="snoozedList" style="display:none;">
+            <div class="empty-state">Nothing snoozed</div>
           </div>
 
           <button class="inbox-row" id="toggleRecent">
@@ -337,6 +351,11 @@
         <button id="paletteAiSearch" class="btn btn-ai-subtle btn-block" style="margin-top:10px; display:none;">
           <span class="ai-spark" data-icon="sparkle"></span>&nbsp;No match, ask AI to find it
         </button>
+        <div class="palette-hint">
+          <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span>
+          <span><kbd>Enter</kbd> open</span>
+          <span><kbd>Esc</kbd> clear</span>
+        </div>
         <div id="paletteMsg" class="wizard-hint" style="text-align:center;"></div>
       </div>
 
@@ -507,6 +526,21 @@
     </div>
 
   </div>
+  <div id="snoozeSheet" class="snooze-sheet">
+    <div class="snooze-sheet-inner">
+      <div class="snooze-sheet-title">Reopen this tab...</div>
+      <div class="snooze-options" id="snoozeOptions">
+        <button class="snooze-opt" data-preset="1h"><span>In an hour</span><span class="snooze-when" data-when="1h"></span></button>
+        <button class="snooze-opt" data-preset="3h"><span>In three hours</span><span class="snooze-when" data-when="3h"></span></button>
+        <button class="snooze-opt" data-preset="tonight"><span>This evening</span><span class="snooze-when" data-when="tonight"></span></button>
+        <button class="snooze-opt" data-preset="tomorrow"><span>Tomorrow morning</span><span class="snooze-when" data-when="tomorrow"></span></button>
+        <button class="snooze-opt" data-preset="weekend"><span>This weekend</span><span class="snooze-when" data-when="weekend"></span></button>
+        <button class="snooze-opt" data-preset="nextweek"><span>Next week</span><span class="snooze-when" data-when="nextweek"></span></button>
+      </div>
+      <button class="btn btn-secondary btn-block" id="snoozeCancel" style="margin-top:8px;">Cancel</button>
+    </div>
+  </div>
+
   <div id="unlockToast" class="unlock-toast"></div>
   <script src="browser-polyfill.js"></script>
   <script src="shared.js"></script>

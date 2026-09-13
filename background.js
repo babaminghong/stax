@@ -2255,6 +2255,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     dismissSuggestedRule(msg.domains).then(sendResponse);
     return true;
   }
+  if (msg.type === "SNOOZE_TABS") {
+    snoozeTabs(msg.tabIds, msg.preset, msg.customTime).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "LIST_SNOOZED") {
+    listSnoozed().then(items => sendResponse({ ok: true, items }));
+    return true;
+  }
+  if (msg.type === "CANCEL_SNOOZE") {
+    cancelSnooze(msg.id, msg.reopenNow).then(sendResponse);
+    return true;
+  }
 });
 
 // ---- Points, levels, and accessories ----
@@ -2670,4 +2682,196 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     dismissSuggestedRule(msg.domains).then(sendResponse);
     return true;
   }
+  if (msg.type === "SNOOZE_TABS") {
+    snoozeTabs(msg.tabIds, msg.preset, msg.customTime).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "LIST_SNOOZED") {
+    listSnoozed().then(items => sendResponse({ ok: true, items }));
+    return true;
+  }
+  if (msg.type === "CANCEL_SNOOZE") {
+    cancelSnooze(msg.id, msg.reopenNow).then(sendResponse);
+    return true;
+  }
 });
+
+// ---- Snooze ----
+// Close a tab now, reopen it at a chosen time. Stored in storage.local so it
+// survives a browser restart, and backed by chrome.alarms rather than a
+// setTimeout: a service worker gets killed constantly in MV3, and a timeout
+// would die with it. Alarms are re-delivered by the browser even after a
+// restart, which is exactly the lifetime this needs.
+const SNOOZE_KEY = "stax_snoozed";
+const SNOOZE_ALARM_PREFIX = "stax_snooze_";
+
+// Fixed presets keep the UI to one tap. "Later today" and the morning
+// options resolve against the user's actual clock, not a fixed offset, so
+// "tomorrow morning" means 9am tomorrow rather than 24 hours from now.
+function resolveSnoozeTime(preset) {
+  const now = new Date();
+  const at = new Date(now);
+
+  switch (preset) {
+    case "1h":
+      at.setHours(at.getHours() + 1);
+      break;
+    case "3h":
+      at.setHours(at.getHours() + 3);
+      break;
+    case "tonight":
+      at.setHours(19, 0, 0, 0);
+      // Already past 7pm, so push to tomorrow rather than firing instantly.
+      if (at <= now) at.setDate(at.getDate() + 1);
+      break;
+    case "tomorrow":
+      at.setDate(at.getDate() + 1);
+      at.setHours(9, 0, 0, 0);
+      break;
+    case "weekend": {
+      // Next Saturday at 10am. If it's already the weekend, this means the
+      // coming Saturday, not today.
+      const day = at.getDay();
+      const daysUntilSat = (6 - day + 7) % 7 || 7;
+      at.setDate(at.getDate() + daysUntilSat);
+      at.setHours(10, 0, 0, 0);
+      break;
+    }
+    case "nextweek": {
+      const day = at.getDay();
+      const daysUntilMon = (1 - day + 7) % 7 || 7;
+      at.setDate(at.getDate() + daysUntilMon);
+      at.setHours(9, 0, 0, 0);
+      break;
+    }
+    default:
+      return null;
+  }
+  return at.getTime();
+}
+
+async function snoozeTabs(tabIds, preset, customTime = null) {
+  const wakeAt = customTime || resolveSnoozeTime(preset);
+  if (!wakeAt || wakeAt <= Date.now()) return { ok: false, error: "bad-time" };
+
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const targets = tabs.filter(t => tabIds.includes(t.id) && t.url &&
+      !/^(chrome|chrome-extension|brave|edge|edge-extension|moz-extension|about|file):/.test(t.url));
+    if (!targets.length) return { ok: false, error: "no-valid-tabs" };
+
+    const { [SNOOZE_KEY]: snoozed = [] } = await chrome.storage.local.get([SNOOZE_KEY]);
+    const created = [];
+
+    for (const tab of targets) {
+      const id = `${Date.now()}_${tab.id}`;
+      const entry = {
+        id,
+        url: tab.url,
+        title: tab.title || "",
+        wakeAt,
+        snoozedAt: Date.now(),
+        windowId: tab.windowId,
+      };
+      snoozed.push(entry);
+      created.push(entry);
+      // One alarm per tab. Chrome caps alarm frequency but not count, and
+      // per-tab alarms mean cancelling one doesn't disturb the others.
+      await chrome.alarms.create(SNOOZE_ALARM_PREFIX + id, { when: wakeAt });
+    }
+
+    await chrome.storage.local.set({ [SNOOZE_KEY]: snoozed });
+
+    // Snapshot for undo before the tabs disappear.
+    await recordLastAction({
+      type: "dedupe",
+      windowId: targets[0].windowId,
+      removedTabs: targets.map(t => ({ url: t.url, title: t.title || "" })),
+    });
+    await chrome.tabs.remove(targets.map(t => t.id));
+
+    return { ok: true, count: created.length, wakeAt };
+  } catch (err) {
+    console.warn("Stax: snoozeTabs failed", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+async function listSnoozed() {
+  const { [SNOOZE_KEY]: snoozed = [] } = await chrome.storage.local.get([SNOOZE_KEY]);
+  return snoozed.slice().sort((a, b) => a.wakeAt - b.wakeAt);
+}
+
+async function cancelSnooze(id, reopenNow = false) {
+  try {
+    const { [SNOOZE_KEY]: snoozed = [] } = await chrome.storage.local.get([SNOOZE_KEY]);
+    const entry = snoozed.find(s => s.id === id);
+    if (!entry) return { ok: false, error: "not-found" };
+
+    await chrome.alarms.clear(SNOOZE_ALARM_PREFIX + id);
+    await chrome.storage.local.set({ [SNOOZE_KEY]: snoozed.filter(s => s.id !== id) });
+    if (reopenNow) await chrome.tabs.create({ url: entry.url, active: false });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// Reopens a snoozed tab when its alarm fires. Opens in the background so a
+// tab waking up mid-task doesn't steal focus, and badges the toolbar so it
+// isn't silent.
+async function wakeSnoozed(id) {
+  try {
+    const { [SNOOZE_KEY]: snoozed = [] } = await chrome.storage.local.get([SNOOZE_KEY]);
+    const entry = snoozed.find(s => s.id === id);
+    if (!entry) return;
+
+    await chrome.storage.local.set({ [SNOOZE_KEY]: snoozed.filter(s => s.id !== id) });
+
+    // Prefer the window it came from, but fall back to any normal window if
+    // that one has since been closed.
+    let windowId = entry.windowId;
+    try {
+      await chrome.windows.get(windowId);
+    } catch {
+      const wins = await chrome.windows.getAll({ windowTypes: ["normal"] });
+      windowId = wins[0]?.id;
+    }
+
+    if (windowId != null) await chrome.tabs.create({ windowId, url: entry.url, active: false });
+    else await chrome.windows.create({ url: entry.url });
+
+    try {
+      await chrome.action.setBadgeText({ text: "!" });
+      await chrome.action.setBadgeBackgroundColor({ color: "#c9a7f5" });
+      setTimeout(() => refreshBadgeForFocusedWindow(), 5000);
+    } catch { /* badge is cosmetic */ }
+  } catch (err) {
+    console.warn("Stax: wakeSnoozed failed", err);
+  }
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (!alarm.name.startsWith(SNOOZE_ALARM_PREFIX)) return;
+  wakeSnoozed(alarm.name.slice(SNOOZE_ALARM_PREFIX.length));
+});
+
+// Alarms can be lost if the browser was closed when one was due. On startup,
+// reopen anything already past its wake time and re-register the rest.
+async function reconcileSnoozeAlarms() {
+  try {
+    const { [SNOOZE_KEY]: snoozed = [] } = await chrome.storage.local.get([SNOOZE_KEY]);
+    if (!snoozed.length) return;
+    const now = Date.now();
+    const overdue = snoozed.filter(s => s.wakeAt <= now);
+    for (const s of overdue) await wakeSnoozed(s.id);
+    for (const s of snoozed.filter(s => s.wakeAt > now)) {
+      await chrome.alarms.create(SNOOZE_ALARM_PREFIX + s.id, { when: s.wakeAt });
+    }
+  } catch (err) {
+    console.warn("Stax: reconcileSnoozeAlarms failed", err);
+  }
+}
+
+chrome.runtime.onStartup.addListener(reconcileSnoozeAlarms);
+chrome.runtime.onInstalled.addListener(reconcileSnoozeAlarms);

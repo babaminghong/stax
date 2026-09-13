@@ -14,7 +14,8 @@
     "tabGroups",
     "storage",
     "sidePanel",
-    "sessions"
+    "sessions",
+    "alarms"
   ],
   "host_permissions": [
     "https://api.anthropic.com/*",

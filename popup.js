@@ -422,6 +422,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupInboxToggle("toggleReadLater", "archiveBody",        loadArchive);
   setupInboxToggle("toggleRecent",    "recentlyClosedList", loadRecentlyClosed);
   setupInboxToggle("toggleAccessories", "accessoriesBody",  loadAccessories);
+  setupInboxToggle("toggleSnoozed",     "snoozedList",       loadSnoozed);
+
+  // ---- Snooze ----
+  document.getElementById("snoozeBtn")?.addEventListener("click", openSnoozeSheet);
+  document.getElementById("snoozeCancel")?.addEventListener("click", closeSnoozeSheet);
+  // Clicking the dimmed backdrop dismisses, but clicks inside the sheet
+  // must not, hence the target check.
+  document.getElementById("snoozeSheet")?.addEventListener("click", (e) => {
+    if (e.target.id === "snoozeSheet") closeSnoozeSheet();
+  });
+  document.getElementById("snoozeOptions")?.addEventListener("click", async (e) => {
+    const opt = e.target.closest(".snooze-opt");
+    if (!opt) return;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) return;
+    const res = await sendMessage({ type: "SNOOZE_TABS", tabIds: [tab.id], preset: opt.dataset.preset });
+    closeSnoozeSheet();
+    if (res?.ok) {
+      earn("archive");
+      stackletReact(`Snoozed. Back ${formatWakeTime(res.wakeAt)}.`);
+      showUndoBanner("Tab snoozed.");
+      loadSnoozed();
+      refreshInboxCounts();
+      // The snoozed tab was the active one, so the popup is about to be
+      // pointing at something that no longer exists.
+      window.close();
+    } else {
+      showStatus("Can't snooze that tab.", "error");
+    }
+  });
+
+  loadSnoozed();
 
   async function refreshInboxCounts() {
     try {
@@ -589,8 +621,23 @@ async function openPaletteScreen() {
   const windowId = activeTab?.windowId;
   const allTabs = windowId != null ? await chrome.tabs.query({ windowId, pinned: false }) : [];
 
+  // Which result the keyboard is on. Kept in a closure rather than read off
+  // the DOM so it survives re-renders while typing.
+  let selectedIndex = 0;
+  let visible = [];
+
+  function applySelection() {
+    const nodes = Array.from(results.querySelectorAll(".palette-item"));
+    nodes.forEach((n, i) => n.classList.toggle("selected", i === selectedIndex));
+    // Keep the highlighted row in view when arrowing past the fold.
+    nodes[selectedIndex]?.scrollIntoView({ block: "nearest" });
+  }
+
   function renderResults(list) {
     msg.textContent = "";
+    visible = list.slice(0, 20);
+    selectedIndex = 0;
+
     if (!list.length) {
       results.innerHTML = `<div class="empty-state">No matching tabs</div>`;
       aiBtn.style.display = "block";
@@ -598,11 +645,11 @@ async function openPaletteScreen() {
     }
     aiBtn.style.display = "none";
     results.innerHTML = "";
-    list.slice(0, 20).forEach(t => {
+    visible.forEach((t, i) => {
       let host = "";
       try { host = new URL(t.url).hostname; } catch { /* ignore malformed URL */ }
       const item = document.createElement("div");
-      item.className = "group-item";
+      item.className = "group-item palette-item";
       item.style.cursor = "pointer";
       item.innerHTML = `
         <div style="display:flex; align-items:center; min-width: 0;">
@@ -610,12 +657,18 @@ async function openPaletteScreen() {
           <span class="group-name">${escapeHtml(t.title || host || "Untitled tab")}</span>
         </div>
       `;
-      item.addEventListener("click", async () => {
-        await sendMessage({ type: "JUMP_TO_TAB", tabId: t.id });
-        window.close();
-      });
+      item.addEventListener("click", () => jumpTo(t.id));
+      // Hovering moves the keyboard selection too, so mouse and keyboard
+      // never disagree about what Enter will open.
+      item.addEventListener("mouseenter", () => { selectedIndex = i; applySelection(); });
       results.appendChild(item);
     });
+    applySelection();
+  }
+
+  async function jumpTo(tabId) {
+    await sendMessage({ type: "JUMP_TO_TAB", tabId });
+    window.close();
   }
 
   function filterLocal(query) {
@@ -626,11 +679,41 @@ async function openPaletteScreen() {
 
   renderResults(allTabs);
 
-  // .oninput (not addEventListener), this function re-runs every time the
-  // palette is opened, and re-adding a listener each time would stack up
-  // duplicate handlers across the popup's lifetime. Assigning .oninput just
-  // replaces the previous one instead.
+  // .oninput and .onkeydown (not addEventListener): this function re-runs
+  // every time the palette opens, and re-adding listeners would stack up
+  // duplicate handlers over the popup's lifetime. Assignment replaces.
   input.oninput = () => renderResults(filterLocal(input.value));
+
+  input.onkeydown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!visible.length) return;
+      // Wraps at both ends, which is what every command palette does.
+      selectedIndex = (selectedIndex + 1) % visible.length;
+      applySelection();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!visible.length) return;
+      selectedIndex = (selectedIndex - 1 + visible.length) % visible.length;
+      applySelection();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (visible[selectedIndex]) jumpTo(visible[selectedIndex].id);
+      // Nothing matched locally, so Enter falls through to the AI search
+      // rather than doing nothing.
+      else if (aiBtn.style.display === "block") aiBtn.click();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      // First Escape clears a query, second leaves the view. Closing
+      // immediately on a typo is annoying.
+      if (input.value) {
+        input.value = "";
+        renderResults(allTabs);
+      } else {
+        window.__staxSwitchView?.("dashboard");
+      }
+    }
+  };
 
   aiBtn.onclick = async () => {
     const query = input.value.trim();
@@ -643,8 +726,7 @@ async function openPaletteScreen() {
     aiBtn.innerHTML = originalHtml;
 
     if (res?.ok && res.tabId != null) {
-      await sendMessage({ type: "JUMP_TO_TAB", tabId: res.tabId });
-      window.close();
+      jumpTo(res.tabId);
     } else if (res?.error === "no-key") {
       msg.style.color = "var(--chip-red-ink)";
       msg.textContent = "No API key set, add one in Settings to use AI search.";
@@ -2387,4 +2469,116 @@ async function loadSuggestedRules() {
     });
     host.appendChild(card);
   });
+}
+
+// ---- Snooze ----
+
+// Mirrors resolveSnoozeTime() in features.js so each preset can show the
+// actual date it resolves to. Duplicated deliberately: the popup shouldn't
+// have to round-trip to the worker six times just to label a menu.
+function previewSnoozeTime(preset) {
+  const now = new Date();
+  const at = new Date(now);
+  switch (preset) {
+    case "1h": at.setHours(at.getHours() + 1); break;
+    case "3h": at.setHours(at.getHours() + 3); break;
+    case "tonight":
+      at.setHours(19, 0, 0, 0);
+      if (at <= now) at.setDate(at.getDate() + 1);
+      break;
+    case "tomorrow":
+      at.setDate(at.getDate() + 1);
+      at.setHours(9, 0, 0, 0);
+      break;
+    case "weekend": {
+      const d = (6 - at.getDay() + 7) % 7 || 7;
+      at.setDate(at.getDate() + d);
+      at.setHours(10, 0, 0, 0);
+      break;
+    }
+    case "nextweek": {
+      const d = (1 - at.getDay() + 7) % 7 || 7;
+      at.setDate(at.getDate() + d);
+      at.setHours(9, 0, 0, 0);
+      break;
+    }
+    default: return null;
+  }
+  return at;
+}
+
+// "in 40m" / "at 19:00" / "Sat 10:00" depending on how far out it is, which
+// is more readable than a full timestamp for everything.
+function formatWakeTime(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const now = new Date();
+  const diffMin = Math.round((d - now) / 60000);
+  if (diffMin < 60) return `in ${Math.max(1, diffMin)}m`;
+
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return `at ${time}`;
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (d.toDateString() === tomorrow.toDateString()) return `tmrw ${time}`;
+
+  return `${d.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
+}
+
+function openSnoozeSheet() {
+  const sheet = document.getElementById("snoozeSheet");
+  if (!sheet) return;
+  // Fill in what each preset actually resolves to, right before showing it,
+  // so the labels are correct no matter how long the popup has been open.
+  sheet.querySelectorAll(".snooze-when").forEach(el => {
+    const t = previewSnoozeTime(el.dataset.when);
+    el.textContent = t ? formatWakeTime(t) : "";
+  });
+  sheet.classList.add("show");
+}
+
+function closeSnoozeSheet() {
+  document.getElementById("snoozeSheet")?.classList.remove("show");
+}
+
+async function loadSnoozed() {
+  const list = document.getElementById("snoozedList");
+  const count = document.getElementById("snoozedCount");
+  if (!list) return;
+  try {
+    const res = await sendMessage({ type: "LIST_SNOOZED" });
+    const items = res?.items || [];
+    if (count) count.textContent = items.length;
+
+    if (!items.length) {
+      list.innerHTML = `<div class="empty-state">Nothing snoozed</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    items.forEach(item => {
+      let host = "";
+      try { host = new URL(item.url).hostname.replace(/^www\./, ""); } catch {}
+      const el = document.createElement("div");
+      el.className = "snoozed-item";
+      el.innerHTML = `
+        <span class="snoozed-title" title="${escapeHtml(item.url)}">${escapeHtml(item.title || host)}</span>
+        <span class="snoozed-when">${formatWakeTime(item.wakeAt)}</span>
+        <button class="btn-icon-small snooze-now" title="Reopen now">${icon("undo", 11)}</button>
+        <button class="btn-icon-small snooze-drop" title="Forget it">${icon("close", 11)}</button>
+      `;
+      el.querySelector(".snooze-now").addEventListener("click", async () => {
+        await sendMessage({ type: "CANCEL_SNOOZE", id: item.id, reopenNow: true });
+        loadSnoozed();
+      });
+      el.querySelector(".snooze-drop").addEventListener("click", async () => {
+        await sendMessage({ type: "CANCEL_SNOOZE", id: item.id, reopenNow: false });
+        loadSnoozed();
+      });
+      list.appendChild(el);
+    });
+  } catch (err) {
+    console.warn("Stax: loadSnoozed failed", err);
+    list.innerHTML = `<div class="empty-state">Couldn't load snoozed tabs.</div>`;
+  }
 }
