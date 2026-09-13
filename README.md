@@ -1,4 +1,4 @@
-# Stax 📚✨
+# Stax v1.4.0
 
 > **The Intelligent, Privacy-First Tab Manager & AI Browsing Companion for Chrome & Firefox.**
 
@@ -13,7 +13,7 @@ Stax transforms browser tab chaos into structured, productive workspaces. Built 
 
 ---
 
-## 🌟 Why Stax?
+##  Why Stax? That's the question you may ask yourself now.. 
 
 Modern browsing means dozens of open tabs scattered across multiple windows. Standard tab managers either require manual sorting or compromise your privacy by sending full page content to remote servers.
 
@@ -25,57 +25,57 @@ Modern browsing means dozens of open tabs scattered across multiple windows. Sta
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-### ⚡ 1. Hybrid Tab Categorization & Smart Sorting
+###  1. Hybrid Tab Categorization & Smart Sorting
 * **Built-in Rule Categories:** Automatically groups tabs into standard categories like *AI & ML*, *Development*, *Social & Media*, *Productivity*, *Communication*, *Finance*, *Shopping*, *Entertainment*, *News*, and *Travel*.
 * **Structural Pattern Classifier:** Identifies domains by TLDs (`.dev`, `.shop`, `.bank`), URL path structures (`/cart`, `/checkout`, `/pull`), and hostname tokens.
 * **Smart Cluster Naming:** Fallback groups intelligently extract shared context across tab titles (e.g., naming a group *"React Router"* instead of raw hostnames).
 * **AI Fallback:** Uses Anthropic Sonnet or Gemini Flash to categorize edge-case tabs into clean, color-coded groups.
 
-### 🧹 2. Smart URL Normalization & Deduplication
+###  2. Smart URL Normalization & Deduplication
 * **Param Stripping:** Strips tracking junk (`utm_source`, `fbclid`, `gclid`, `ref`, etc.) to match identical pages opened from different sources.
 * **Canonical Matching:** Ignores trailing slashes, fragments (`#`), and URL parameter reordering.
 * **Focus Protection:** Keeps the oldest open tab during deduplication to prevent focus jumps.
 
-### 🤖 3. Stacklet — AI Browsing Companion
+###  3. Stacklet — AI Browsing Companion
 * **Context-Aware Assistance:** Tailors recommendations based on user profiles (*Developer*, *Marketing*, *Research*, *Design*, *General*).
 * **Safe Action Execution:** Proposes actions with interactive confirmation cards (`group_tabs`, `close_tabs`, `suspend_tabs`, `rename_group`, `save_session`, `open_tabs`).
 * **Safe Tab Opening:** Can research and open curated sets of verified HTTP/HTTPS links without breaking context.
 
-### 🌲 4. Tab Tree Lineage & Hierarchy
+###  4. Tab Tree Lineage & Hierarchy
 * Reconstructs parent-child relationship trees using browser `openerTabId` history.
 * Easily follow research trails and see where child tabs originated.
 
-### 💤 5. Memory Saver & Inactive Tab Suspension
+###  5. Memory Saver & Inactive Tab Suspension
 * Automatically discards inactive tabs (>20 minutes idle) to free memory.
 * Preserves tab position and title—clicking any suspended tab immediately restores it.
 
-### 🎯 6. Focus Mode
+###  6. Focus Mode
 * Keeps your active task front-and-center while collapsing all other tab groups.
 * Optionally suspends non-active tab groups during deep work sessions and restores your workspace state on exit.
 
-### 📦 7. Sessions & Read-Later Archive
+###  7. Sessions & Read-Later Archive
 * **Session Snapshots:** Save named snapshots of window tab states (including group colors and names) to reopen later or across browser restarts.
 * **Stale Tab Auto-Archiving:** Automatically close tabs inactive for extended periods (e.g., >7 days) into a local Read-Later archive without losing URLs.
 
-### 🔍 8. Natural Language Tab Search
+###  8. Natural Language Tab Search
 * Search your tab stack using natural language queries like *"Where was I looking at flight status?"* or *"Find the PR review tab"*.
 
-### 📊 9. Local Privacy-First Time Tracking
+###  9. Local Privacy-First Time Tracking
 * Tracks time spent across categories locally.
 * Includes guards against micro-switches and machine sleep cycles. Data auto-prunes after 21 days.
 
-### 📝 10. One-Click Markdown Export
+###  10. One-Click Markdown Export
 * Export your entire window's tab structure formatted neatly as a Markdown document for notes, summaries, or team sharing.
 
-### 🎮 11. Tab Hygiene & Gamification
+###  11. Tab Hygiene & Gamification
 * Track your **Tab Hygiene Score** and Stacklet's mood.
 * Earn points for organizing, saving memory, and keeping tab clutter low to unlock fun companion accessories!
 
 ---
 
-## 🛠️ How It Works Architecture
+##  How It Works Architecture
 
 Stax uses a multi-tier classification pipeline designed for maximum speed and zero data leakage:
 
@@ -105,7 +105,7 @@ Stax uses a multi-tier classification pipeline designed for maximum speed and ze
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+## ⌨ Keyboard Shortcuts
 
 Stax includes built-in keyboard command triggers (customizable via `chrome://extensions/shortcuts` or `about:addons`):
 
@@ -122,7 +122,7 @@ Stax includes built-in keyboard command triggers (customizable via `chrome://ext
 
 ---
 
-## 🚀 Installation & Setup
+##  Installation & Setup
 
 ### 1. Developer / Unpacked Installation
 
@@ -147,7 +147,7 @@ Stax includes built-in keyboard command triggers (customizable via `chrome://ext
 
 ---
 
-## 🔑 AI Configuration (Optional)
+##  AI Configuration (Optional)
 
 Stax is fully functional offline using local rules. To enable AI Tab Sorting, Stacklet Companion Chat, and Natural Language Tab Search:
 
@@ -160,7 +160,7 @@ Stax is fully functional offline using local rules. To enable AI Tab Sorting, St
 
 ---
 
-## 🔒 Privacy & Security First
+##  Privacy & Security First
 
 Stax was engineered around strict data minimization:
 * **No Page Content Scraping:** Stax never reads DOM content, page HTML, forms, inputs, or cookies.
@@ -183,7 +183,7 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 
 ---
 
-## 📄 License
+##  License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
