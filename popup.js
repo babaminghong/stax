@@ -3,6 +3,18 @@
 
 function friendlyAiError(rawError) {
   const msg = rawError || "AI grouping failed.";
+  // A bare "Failed to fetch" means the request never reached the provider:
+  // no status code, no response body. Usually CORS, an offline machine, or a
+  // blocked domain. The raw message tells the user none of that.
+  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+    return "Couldn't reach the AI provider. Check you're online, and that your key is for the provider selected in Settings.";
+  }
+  if (/\b404\b/.test(msg)) {
+    return "That model name wasn't found. Check the model field in Settings.";
+  }
+  if (/\b400\b/.test(msg)) {
+    return "The provider rejected the request. If you switched providers, make sure the key matches.";
+  }
   if (/\b503\b/.test(msg) || /UNAVAILABLE/i.test(msg)) {
     return "The AI model is overloaded right now, already retried a few times. Try again shortly.";
   }
@@ -120,6 +132,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  wirePageAccessToggle();
+  refreshPageAccessUI();
+
   const autoRunToggle = document.getElementById("autoRunToggle");
   const autoRunNote = document.getElementById("autoRunNote");
   if (autoRunToggle) {
@@ -157,6 +172,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("settingsBack")?.addEventListener("click", () => {
     settingsScreen.style.display = "none";
     mainScreen.style.display = "block";
+    requestAnimationFrame(() => window.__staxPlaceIndicator?.());
   });
 
   document.getElementById("quickSort")?.addEventListener("click", async (e) => {
@@ -175,6 +191,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           [document.getElementById("stackletFigure"), document.getElementById("perchedStacklet")]
             .forEach(el => { if (el) celebrateStacklet(el); });
           stackletReact(`Sorted into ${res.groupsCreated} group${res.groupsCreated === 1 ? "" : "s"}!`);
+          if (res.groupIds?.length) appendGroupChips(res.groupIds);
         }
       } else {
         showStatus(t("sortFailed"), "error");
@@ -391,9 +408,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!hyg?.ok) return;
       const pct = hyg.tabCount ? Math.round(hyg.groupedRatio * 100) : 0;
       const el = (id) => document.getElementById(id);
-      if (el("stripTabCount"))   el("stripTabCount").textContent   = hyg.tabCount;
-      if (el("stripGroupCount")) el("stripGroupCount").textContent = hyg.groupCount;
-      if (el("stripGroupedPct")) el("stripGroupedPct").textContent = pct + "%";
+      // Counting rather than snapping. Only runs when the value actually
+      // changed, so the strip is still on a 15s poll but doesn't animate
+      // every cycle for no reason.
+      tickNumber(el("stripTabCount"), hyg.tabCount);
+      tickNumber(el("stripGroupCount"), hyg.groupCount);
+      tickNumber(el("stripGroupedPct"), pct, "%");
       if (el("stripMoodIcon")) el("stripMoodIcon").innerHTML = moodFace(hyg.mood, 22);
     } catch { /* cosmetic */ }
   }
@@ -425,6 +445,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupInboxToggle("toggleSnoozed",     "snoozedList",       loadSnoozed);
 
   // ---- Snooze ----
+  document.getElementById("summarizeBtn")?.addEventListener("click", openConsentSheet);
+  document.getElementById("consentCancel")?.addEventListener("click", closeConsentSheet);
+  document.getElementById("consentGo")?.addEventListener("click", runSummary);
+  document.getElementById("consentSheet")?.addEventListener("click", (e) => {
+    if (e.target.id === "consentSheet") closeConsentSheet();
+  });
+
   document.getElementById("snoozeBtn")?.addEventListener("click", openSnoozeSheet);
   document.getElementById("snoozeCancel")?.addEventListener("click", closeSnoozeSheet);
   // Clicking the dimmed backdrop dismisses, but clicks inside the sheet
@@ -498,15 +525,68 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const navTabs = document.getElementById("navTabs");
 
+  // One pill slides between tabs rather than each tab painting its own
+  // background, so the highlight reads as a single object moving.
+  const indicator = document.createElement("div");
+  indicator.className = "nav-indicator";
+  navTabs?.appendChild(indicator);
+
+  function moveIndicator(name, animate = true) {
+    const tab = navTabs?.querySelector(`.nav-tab[data-view="${name}"]`);
+    if (!tab || !navTabs) return;
+    // During onboarding the main screen is hidden, so the tabs measure zero
+    // and the pill would be placed wrong the moment it appears. Defer until
+    // there's a real width to read.
+    if (tab.offsetWidth === 0) {
+      indicator.style.opacity = "0";
+      return;
+    }
+    indicator.style.opacity = "1";
+    if (!animate) indicator.style.transition = "none";
+    indicator.style.width = `${tab.offsetWidth}px`;
+    indicator.style.transform = `translateX(${tab.offsetLeft - 4}px)`;
+    if (!animate) {
+      // Force a reflow so the transition-less placement lands before
+      // transitions are restored, otherwise the first move animates from 0.
+      void indicator.offsetWidth;
+      indicator.style.transition = "";
+    }
+  }
+
   function switchView(name) {
+    const target = views[name];
+    const changed = target && target.style.display === "none";
+
     Object.entries(views).forEach(([key, el]) => {
       if (el) el.style.display = key === name ? "block" : "none";
     });
     navTabs?.querySelectorAll(".nav-tab").forEach(t => t.classList.toggle("active", t.dataset.view === name));
+    moveIndicator(name);
+
+    // Retrigger the fade only when the view actually changed, so re-clicking
+    // the tab you're already on doesn't flash.
+    if (changed && target) {
+      target.classList.remove("view-fading");
+      void target.offsetWidth;
+      target.classList.add("view-fading");
+    }
+
     if (name === "stacklet") initStacklet();
     if (name === "search") openPaletteScreen();
     if (name === "stats") loadStatsView();
   }
+
+  // Place it without animating on first paint, and keep it correct if the
+  // popup is ever resized.
+  window.__staxPlaceIndicator = () => {
+    const active = navTabs?.querySelector(".nav-tab.active");
+    moveIndicator(active?.dataset.view || "dashboard", false);
+  };
+  requestAnimationFrame(() => moveIndicator("dashboard", false));
+  window.addEventListener("resize", () => {
+    const active = navTabs?.querySelector(".nav-tab.active");
+    if (active) moveIndicator(active.dataset.view, false);
+  });
   window.__staxSwitchView = switchView;
 
   navTabs?.querySelectorAll(".nav-tab").forEach(tab => {
@@ -860,7 +940,9 @@ function initOnboardingWizard(onboardScreen, mainScreen, settingsScreen) {
 
     onboardScreen.style.display = "none";
     mainScreen.style.display = "block";
-    loadActiveGroups();
+    loadActiveGroups({ force: true });
+    // Tabs have a measurable width now that the screen is visible.
+    requestAnimationFrame(() => window.__staxPlaceIndicator?.());
 
     if (answers.aiInterest === "yes") {
       // Straight into the in-popup Settings screen, no separate window.
@@ -879,12 +961,25 @@ function initOnboardingWizard(onboardScreen, mainScreen, settingsScreen) {
   renderStep();
 }
 
-async function loadActiveGroups() {
+// Signature of what the rendered list actually depends on. Live sync fires on
+// every tab event, and rebuilding identical markup each time made the list
+// flicker, reset its scroll position, and drop hover state mid-hover. If the
+// signature hasn't changed there is nothing to redraw.
+let lastGroupsSignature = "";
+
+async function loadActiveGroups({ force = false } = {}) {
   const groupsList = document.getElementById("activeGroupsList");
   if (!groupsList) return;
   try {
     const window = await chrome.windows.getCurrent();
     const groups = await chrome.tabGroups.query({ windowId: window.id });
+
+    const counts = await Promise.all(
+      groups.map(g => chrome.tabs.query({ groupId: g.id }).then(t => t.length))
+    );
+    const signature = groups.map((g, i) => `${g.id}:${g.title}:${g.color}:${counts[i]}`).join("|");
+    if (!force && signature === lastGroupsSignature) return;
+    lastGroupsSignature = signature;
 
     if (!groups.length) {
       groupsList.innerHTML = `<div class="empty-state">No active groups in this window</div>`;
@@ -892,25 +987,28 @@ async function loadActiveGroups() {
     }
 
     groupsList.innerHTML = "";
-    for (const g of groups) {
-      const tabsInGroup = await chrome.tabs.query({ groupId: g.id });
+    groups.forEach((g, gi) => {
+      const tabCount = counts[gi];
       const item = document.createElement("div");
       item.className = "group-item";
+      // Stagger the entrance slightly so a fresh list assembles rather than
+      // snapping in. Capped so a long list doesn't crawl.
+      item.style.animationDelay = `${Math.min(gi, 6) * 28}ms`;
       item.innerHTML = `
         <div style="display:flex; align-items:center;">
           <span class="group-badge group-badge-${g.color}">${glyphFor(g.title)}</span>
           <span class="group-name">${escapeHtml(g.title || "Unnamed Group")}</span>
-          <span class="group-count">${tabsInGroup.length}</span>
+          <span class="group-count">${tabCount}</span>
         </div>
         <button class="btn-icon-small" title="Ungroup" data-group-id="${g.id}">${icon("close", 12)}</button>
       `;
       item.querySelector("button").addEventListener("click", async (e) => {
         const groupId = Number(e.currentTarget.dataset.groupId);
         await sendMessage({ type: "UNGROUP_ONE", groupId });
-        loadActiveGroups();
+        loadActiveGroups({ force: true });
       });
       groupsList.appendChild(item);
-    }
+    });
   } catch (err) {
     console.warn("Stax: loadActiveGroups failed", err);
     groupsList.innerHTML = `<div class="empty-state">Couldn't load groups. Try reloading the extension.</div>`;
@@ -1103,6 +1201,15 @@ function appendActionProposal(action, windowId) {
       // Log the outcome, not the proposal: on reload you want to see what
       // actually happened, not a dead button you can't press again.
       sendMessage({ type: "APPEND_CHAT", entries: [{ role: "system", text: `Ran: ${action.label} (${res.detail || "done"})` }] });
+      // Anything that produced groups gets them rendered as clickable chips.
+      if (res.groupIds?.length) appendGroupChips(res.groupIds);
+      else if (["group_tabs", "smart_sort", "open_tabs"].includes(action.type)) {
+        const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (t?.windowId != null) {
+          const gs = await chrome.tabGroups.query({ windowId: t.windowId });
+          appendGroupChips(gs.map(g => g.id));
+        }
+      }
     }
     loadActiveGroups();
   });
@@ -1270,6 +1377,7 @@ async function initStacklet() {
 
     await syncStackletMood();
     loadAccessories();
+    refreshPageAccessUI();
     if (log && !log.children.length && !past.length) {
       appendChatMessage(
         stackletAutoRun
@@ -2643,4 +2751,226 @@ function relativeDay(ts) {
   y.setDate(y.getDate() - 1);
   if (d.toDateString() === y.toDateString()) return "Yesterday";
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
+// Eases a number from its current displayed value to a new one. Skips
+// entirely when nothing changed, and jumps straight to the target for large
+// deltas or when reduced motion is set, since watching 40 tick to 4 is
+// slower to read than just showing the answer.
+const numberTimers = new WeakMap();
+function tickNumber(el, target, suffix = "") {
+  if (!el) return;
+  const current = parseInt(el.textContent, 10);
+  if (current === target) return;
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || !Number.isFinite(current) || Math.abs(target - current) > 40) {
+    el.textContent = target + suffix;
+    return;
+  }
+
+  cancelAnimationFrame(numberTimers.get(el));
+  const from = current;
+  const start = performance.now();
+  const dur = 380;
+
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(from + (target - from) * eased) + suffix;
+    if (t < 1) numberTimers.set(el, requestAnimationFrame(step));
+  };
+  numberTimers.set(el, requestAnimationFrame(step));
+}
+
+// ---- Page read permission ----
+// The request has to happen here rather than in the worker: Chrome only
+// honours permissions.request() from a user gesture inside an extension page.
+async function refreshPageAccessUI() {
+  const toggle = document.getElementById("pageReadToggle");
+  const note = document.getElementById("pageReadNote");
+  const btn = document.getElementById("summarizeBtn");
+  const res = await sendMessage({ type: "PAGE_ACCESS_STATE" });
+  const granted = !!res?.granted;
+
+  if (toggle) toggle.checked = granted;
+  if (note) note.style.display = granted ? "block" : "none";
+  // The summarise button only exists when the capability does.
+  if (btn) btn.style.display = granted ? "flex" : "none";
+  return granted;
+}
+
+function wirePageAccessToggle() {
+  const toggle = document.getElementById("pageReadToggle");
+  if (!toggle || toggle.dataset.wired) return;
+  toggle.dataset.wired = "1";
+
+  toggle.addEventListener("change", async () => {
+    if (toggle.checked) {
+      let granted = false;
+      try {
+        granted = await chrome.permissions.request({
+          permissions: ["scripting"],
+          origins: ["http://*/*", "https://*/*"],
+        });
+      } catch (err) {
+        console.warn("Stax: permission request failed", err);
+      }
+      await sendMessage({ type: "RECORD_PAGE_ACCESS", granted });
+      // Chrome's own prompt can be dismissed, so never assume it was allowed.
+      if (!granted) toggle.checked = false;
+    } else {
+      await sendMessage({ type: "REVOKE_PAGE_ACCESS" });
+    }
+    refreshPageAccessUI();
+  });
+}
+
+// ---- Per-summary tab consent ----
+let consentSelection = new Set();
+
+async function openConsentSheet() {
+  const sheet = document.getElementById("consentSheet");
+  const list = document.getElementById("consentList");
+  const go = document.getElementById("consentGo");
+  if (!sheet || !list) return;
+
+  consentSelection = new Set();
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabs = (await chrome.tabs.query({ windowId: activeTab?.windowId }))
+    .filter(t => t.url && /^https?:/.test(t.url));
+
+  if (!tabs.length) {
+    showStatus("No readable tabs in this window.", "error");
+    return;
+  }
+
+  function updateGo() {
+    const n = consentSelection.size;
+    go.disabled = n === 0;
+    go.textContent = n === 1 ? "Read 1 tab" : `Read ${n} tabs`;
+  }
+
+  list.innerHTML = "";
+  tabs.forEach(t => {
+    let host = "";
+    try { host = new URL(t.url).hostname.replace(/^www\./, ""); } catch {}
+    const row = document.createElement("label");
+    row.className = "consent-item";
+    row.innerHTML = `
+      <input type="checkbox">
+      <span class="consent-title">${escapeHtml(t.title || host)}</span>
+      <span class="consent-host">${escapeHtml(host)}</span>
+    `;
+    const box = row.querySelector("input");
+    box.addEventListener("change", () => {
+      if (box.checked) consentSelection.add(t.id);
+      else consentSelection.delete(t.id);
+      row.classList.toggle("on", box.checked);
+      updateGo();
+    });
+    list.appendChild(row);
+  });
+
+  updateGo();
+  sheet.classList.add("show");
+}
+
+function closeConsentSheet() {
+  document.getElementById("consentSheet")?.classList.remove("show");
+}
+
+async function runSummary() {
+  const ids = [...consentSelection];
+  closeConsentSheet();
+  if (!ids.length) return;
+
+  const figure = document.getElementById("stackletFigure");
+  setStackletState(figure, "working");
+  stackletSay(`Reading ${ids.length} page${ids.length === 1 ? "" : "s"}...`, { hold: 2000 });
+  appendChatMessage(`Summarise ${ids.length} tab${ids.length === 1 ? "" : "s"}`, "user");
+
+  const res = await sendMessage({ type: "SUMMARIZE_TABS", tabIds: ids });
+  registerIdleSleeper(figure);
+
+  if (!res?.ok) {
+    const reasons = {
+      "no-permission": "Page reading isn't enabled. Turn it on in Settings first.",
+      "nothing-readable": "None of those tabs would give up their text.",
+      "no-tabs-approved": "Nothing was selected.",
+      "bad-response": "The summary came back malformed. Try again.",
+    };
+    appendChatMessage(reasons[res?.error] || friendlyAiError(res?.error), "system");
+    return;
+  }
+
+  const lines = (res.summaries || []).map(s => {
+    const tab = document.createElement("div");
+    return `${s.what}${s.verdict ? ` ${s.verdict}` : ""}`;
+  });
+  const body = [res.overall, ...lines].filter(Boolean).join("\n\n");
+  appendChatMessage(body, "bot");
+  appendChatMessage(`Read ${res.readCount} page(s). Nothing was stored.`, "system");
+  sendMessage({ type: "APPEND_CHAT", entries: [{ role: "assistant", text: body }] });
+  earn("chat");
+}
+
+// ---- Group result chips ----
+// When Stacklet creates groups, saying "done" isn't much use: you still have
+// to go find them. These render the actual groups in their real colours, and
+// clicking one jumps to its first tab.
+const CHIP_COLORS = {
+  grey:   ["#d8d4c9", "#3a3730"],
+  blue:   ["#cfe3fb", "#1d4e89"],
+  red:    ["#fbd0d0", "#8c2b2b"],
+  yellow: ["#f9e6b3", "#6b5310"],
+  green:  ["#cdeddb", "#1f5d3c"],
+  pink:   ["#fbd9e8", "#8a2f5c"],
+  purple: ["#e2d6fb", "#4b2b86"],
+  cyan:   ["#cfeef2", "#155e69"],
+  orange: ["#fbdfc6", "#8a4a15"],
+};
+
+async function appendGroupChips(groupIds) {
+  const log = document.getElementById("chatLog");
+  if (!log || !groupIds?.length) return;
+
+  const wrap = document.createElement("div");
+  wrap.className = "chat-groups";
+
+  for (const id of groupIds) {
+    let group, tabs;
+    try {
+      group = await chrome.tabGroups.get(id);
+      tabs = await chrome.tabs.query({ groupId: id });
+    } catch {
+      continue; // group was removed between creating it and rendering
+    }
+    if (!tabs.length) continue;
+
+    const [bg, ink] = CHIP_COLORS[group.color] || CHIP_COLORS.grey;
+    const chip = document.createElement("button");
+    chip.className = "group-chip";
+    chip.style.background = bg;
+    chip.style.color = ink;
+    chip.title = `Jump to ${group.title || "this group"}`;
+    chip.innerHTML = `
+      <span class="group-chip-dot"></span>
+      <span>${escapeHtml(group.title || "Untitled")}</span>
+      <span class="group-chip-n">${tabs.length}</span>
+    `;
+    chip.addEventListener("click", async () => {
+      // Expand it first, otherwise jumping into a collapsed group is
+      // disorienting: the tab activates but you can't see its neighbours.
+      try { await chrome.tabGroups.update(id, { collapsed: false }); } catch {}
+      await sendMessage({ type: "JUMP_TO_TAB", tabId: tabs[0].id });
+      window.close();
+    });
+    wrap.appendChild(chip);
+  }
+
+  if (wrap.children.length) {
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+  }
 }

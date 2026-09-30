@@ -373,6 +373,9 @@
           <button id="stackletAnalyze" class="btn btn-secondary" style="font-size:12px;">What am I working on?</button>
           <button id="stackletTidy"    class="btn btn-secondary" style="font-size:12px;">Suggest a cleanup</button>
         </div>
+        <button id="summarizeBtn" class="btn btn-secondary btn-block" style="font-size:12px; margin-bottom:8px; display:none;">
+          Summarise specific tabs
+        </button>
         <div class="chat-input-row">
           <input type="text" id="chatInput" class="text-input" placeholder="Ask Stacklet about your tabs..." maxlength="400" />
           <button id="chatSend" class="btn btn-primary" style="flex-shrink:0;">Send</button>
@@ -481,6 +484,17 @@
           </div>
           <input type="checkbox" id="autoRunToggle" class="switch-input" />
         </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Let Stacklet read page content</div>
+            <div class="settings-row-sub">Off by default. Even when on, you pick which tabs each time.</div>
+          </div>
+          <input type="checkbox" id="pageReadToggle" class="switch-input" />
+        </div>
+        <div class="danger-note" id="pageReadNote" style="display: none;">
+          Stax has permission to read page text. It is only used when you explicitly pick tabs and confirm, and only those tabs are read. Nothing is stored. Turn this off to revoke the permission entirely.
+        </div>
+
         <div class="danger-note" id="autoRunNote" style="display: none;">
           With this on, Stacklet groups, renames, suspends, and closes tabs without asking first. Closing is the risky one, Undo covers the last action for two minutes, but anything older is gone. Leave it off unless you've watched what it suggests for a while.
         </div>
@@ -541,6 +555,18 @@
         <button class="snooze-opt" data-preset="nextweek"><span>Next week</span><span class="snooze-when" data-when="nextweek"></span></button>
       </div>
       <button class="btn btn-secondary btn-block" id="snoozeCancel" style="margin-top:8px;">Cancel</button>
+    </div>
+  </div>
+
+  <div id="consentSheet" class="snooze-sheet">
+    <div class="snooze-sheet-inner">
+      <div class="snooze-sheet-title">Which tabs may Stacklet read?</div>
+      <div class="consent-note">Only the tabs you tick are read, once, for this summary. Nothing is saved.</div>
+      <div class="consent-list" id="consentList"></div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn btn-secondary" id="consentCancel" style="flex:1;">Cancel</button>
+        <button class="btn btn-primary" id="consentGo" style="flex:1;" disabled>Read 0 tabs</button>
+      </div>
     </div>
   </div>
 

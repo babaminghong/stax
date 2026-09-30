@@ -34,7 +34,11 @@ async function callAnthropic(apiKey, tabSummaries) {
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
+        // Required for calls made from a browser context. Without it the
+        // CORS preflight fails and fetch throws "Failed to fetch" before
+        // the request ever reaches Anthropic.
+        "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",

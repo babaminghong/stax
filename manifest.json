@@ -78,5 +78,12 @@
       "description": "Undo the last Stax action"
     }
   },
-  "default_locale": "en"
+  "default_locale": "en",
+  "optional_permissions": [
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
 }

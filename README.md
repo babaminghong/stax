@@ -2,24 +2,27 @@
 
 > A privacy-first tab manager and AI browsing companion for Chrome and Firefox.
 
-Stax sorts your open tabs into colour-coded groups. It runs on local rules by default, so it's instant and works offline, and you can plug in your own Anthropic or Gemini key if you want AI to handle the tabs the rules can't figure out. Nothing about your browsing leaves your device unless you turn that on yourself.
+Stax organizes your open tabs into colour-coded groups. By default, it uses local rules, making sorting instant and fully offline. You can also provide your own Anthropic or Gemini API key for additional tab classification. Your browsing data stays on your machine unless you enable that feature.
 
 ---
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+
 [![Browsers](https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Edge%20%7C%20Brave-orange.svg)](#installation--setup)
+
 [![Privacy First](https://img.shields.io/badge/Privacy-100%25%20Local-green.svg)](#privacy--security)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## Why Stax? That's the question you may ask yourself now.
 
-You end up with thirty tabs across two windows and no idea what's in any of them. Most tab managers either make you sort everything by hand, or they read your page content and send it off somewhere.
+Thirty tabs become thirty little mysteries spread across a couple of windows. Most tab managers either leave you to organize them manually or inspect your page content and send that information elsewhere.
 
-Stax does neither.
+Stax takes a different approach.
 
-Most tabs get sorted instantly by domain and URL rules that run on your machine, with no network request at all. For the ones that don't match anything, AI is optional and only ever sees the tab title and hostname. Never the page, never cookies, never form data.
+Most tabs are classified immediately using domain and URL rules that execute locally, without making a network request. Tabs that do not match those rules can be handled using the optional external provider you configure.
 
 ---
 
@@ -27,91 +30,71 @@ Most tabs get sorted instantly by domain and URL rules that run on your machine,
 
 ### Hybrid sorting
 
-Tabs get grouped into categories like Development, Social, Productivity, Finance, Shopping, News and Travel.
+Stax automatically sorts tabs into groups such as Development, Social, Productivity, Finance, Shopping, News and Travel.
 
-The classifier checks exact domains first, then structural patterns (`.shop` and `.bank` domains, `/cart` and `/checkout` paths, `/pull/` on git hosts), then shared words across tab titles. A group of React Router pages gets named "React Router" rather than the hostname.
+Classification happens in stages. Exact domain matches are checked first, followed by structural indicators such as `.shop` and `.bank` domains, `/cart` and `/checkout` paths, and `/pull/` paths on Git hosts. Shared words in tab titles are also considered. For example, several React Router pages can be grouped under "React Router" instead of being labelled with their hostname.
 
-Anything still unmatched goes to AI, if you've set a key.
+Tabs that still do not have a match can use the configured provider when a key has been added.
 
 ### Duplicate cleanup
 
-Strips tracking parameters like `utm_source`, `fbclid` and `gclid` before comparing, so the same article opened from three different links counts as one tab. Trailing slashes, fragments and parameter order are ignored too.
+Before comparing tabs, Stax removes common tracking parameters such as `utm_source`, `fbclid` and `gclid`. Multiple copies of the same article opened through different tracked links can therefore be recognised as duplicates.
+
+Fragments, trailing slashes and differences in parameter ordering are ignored as well.
 
 ### Stacklet
 
-A companion who sits on the logo. He can group tabs, suggest cleanups, save sessions, and open research material for you.
+Stacklet is the little companion sitting on the Stax logo. He can organize tabs, recommend cleanups, save sessions and open research material.
 
-He proposes actions and waits for you to approve them, unless you switch that off in settings. He can only run a fixed list of tab operations, so there's nothing he can do that Stax itself can't.
+By default, Stacklet suggests actions and waits for your approval. You can disable that approval step in settings if you prefer. His capabilities are restricted to a predefined set of tab operations, so he cannot perform anything outside Stax's existing capabilities.
 
-He also falls asleep if you ignore him and unlocks accessories as you use the extension. That part isn't useful, it's just fun.
+Ignore him for long enough and he'll fall asleep. Using the extension also unlocks various accessories for him. None of that improves tab management. It's just there for fun.
 
 ### Tab tree
 
-Chrome quietly records which tab opened which, and nothing surfaces it. Stax reconstructs the trail so you can see how a research session actually branched.
+Chrome keeps track of which tab was opened from which other tab, but does not provide a useful view of that relationship. Stax rebuilds the hierarchy so you can follow how a research session branched over time.
 
 ### Memory saving
 
-Tabs you haven't touched in 20 minutes get discarded to free memory. Click one and it reloads where you left it. Anything playing audio is left alone.
+Tabs that have been untouched for 20 minutes can be discarded to reduce memory usage. Selecting one restores it to the previous page. Tabs currently playing audio are excluded.
 
 ### Focus mode
 
-Collapses every group except the one you're working in, and puts them all back the way they were when you exit.
+Focus mode hides every group except the one you're currently working in. When you leave focus mode, the other groups are restored to their previous state.
 
 ### Sessions and Read Later
 
-Save a window as a named session, including group names and colours, and reopen it later even after a restart.
+A window can be saved as a named session, preserving its group names and colours. Saved sessions can be reopened later, including after restarting the browser.
 
-Tabs you haven't opened in a week can be archived to a local Read Later list instead of just closed, so you stop hoarding tabs out of guilt.
+Tabs that have not been opened for seven days can also be moved into a local Read Later list rather than simply being closed, giving you a way to clear old tabs without losing them entirely.
 
 ### Natural language search
 
-Search your tabs by typing part of a title, or describe one ("where was I looking at flight status") and let AI find it.
+Find tabs by entering part of their title, or describe what you're looking for in natural language, such as "where was I looking at flight status", and let the configured provider find the relevant tab.
 
 ### Time tracking
 
-Tracks time per category, locally. Guards against rapid tab switches and machine sleep so the numbers mean something. Data is pruned after 21 days.
+Stax records how much time you spend in each category locally. It accounts for rapid tab switching and periods when the computer is asleep so that those measurements remain meaningful. Tracking data is automatically wiped after 21 days.
 
 ### Markdown export
 
-Copies your whole window as a grouped markdown link list, ready to paste into notes.
+Export the current window as a grouped list of Markdown links that you can paste directly into your notes.
 
 ---
 
 ## How it works
 
-Four passes. Each tab stops at the first one that matches.
+Stax processes each tab through four classification stages. As soon as a stage produces a match, the tab does not continue to the next one.
 
-```text
-[ Incoming Tab ]
-       |
-       v
-+---------------------------+
-|  1. Custom rules          |  your own domain rules  -> grouped
-+-------------+-------------+
-              | no match
-              v
-+---------------------------+
-|  2. Built-in domains      |  known sites            -> grouped
-+-------------+-------------+
-              | no match
-              v
-+---------------------------+
-|  3. Pattern signals       |  TLD / path / title     -> grouped
-+-------------+-------------+
-              | leftovers, and only if a key is set
-              v
-+---------------------------+
-|  4. AI on metadata        |  Claude or Gemini       -> grouped
-+---------------------------+
-```
+![How Stax Works](images/how-stax.png)
 
-Domain matching is exact, not substring. `amazon.com.evil.ru` can never match `amazon.com`.
+Domain comparisons use exact matching rather than substring matching. For example, `amazon.com.evil.ru` will never be treated as a match for `amazon.com`.
 
 ---
 
 ## Keyboard Shortcuts
 
-Chrome only allows four default bindings per extension, so the rest are unassigned. You can set them yourself at `chrome://extensions/shortcuts`.
+Chrome permits only four extension shortcuts to have default bindings. The remaining commands start unassigned, but you can configure them yourself through `chrome://extensions/shortcuts`.
 
 | Command | Default | What it does |
 | :--- | :--- | :--- |
@@ -130,63 +113,65 @@ Chrome only allows four default bindings per extension, so the rest are unassign
 
 ```bash
 git clone https://github.com/babaminghong/stax.git
+
 cd stax
 ```
 
 ### Chrome, Brave, Edge, Opera
 
-1. Open `chrome://extensions`
-2. Turn on Developer mode
-3. Click Load unpacked and select the `stax` folder
+1. Navigate to `chrome://extensions`
+2. Enable Developer mode
+3. Choose **Load unpacked** and select the `stax` directory
 
 ### Firefox 139+
 
-Firefox needs its own manifest, and the tab group API Stax depends on only landed in Firefox 139.
+Stax requires a separate Firefox manifest because the tab-group API it relies on became available in Firefox 139.
 
 ```bash
 cp manifest.json manifest.chrome.json
+
 cp manifest.firefox.json manifest.json
 ```
 
-Then open `about:debugging#/runtime/this-firefox` and load it as a temporary add-on. See [browsers.md](browsers.md) for the full list of differences.
+Next, open `about:debugging#/runtime/this-firefox` and load the extension as a temporary add-on. Refer to [browsers.md](browsers.md) for the complete set of browser-specific differences.
 
-If you change anything in `modules/`, run `node build.js` before reloading. That bundles them into `background.js`.
+Whenever you modify files inside `modules/`, run `node build.js` before reloading the extension. The command bundles those modules into `background.js`.
 
 ---
 
 ## AI Configuration (optional)
 
-Everything except the AI features works without a key.
+The core extension works without an API key. A key is only needed for the optional external classification and search features.
 
-1. Open the Stax popup and go to Settings
-2. Pick Anthropic (`claude-sonnet-4-6`) or Gemini (`gemini-flash-latest`)
-3. Paste your key and save
+1. Open the Stax popup and enter Settings
+2. Select either Anthropic (`claude-sonnet-4-6`) or Gemini (`gemini-flash-latest`)
+3. Enter your API key and save it
 
-Keys are kept in `chrome.storage.local`, which means they stay on that device and never sync. They're stored as plain text, the same way every extension does it, so treat the key the way you would anywhere else.
+API keys are stored in `chrome.storage.local`, so they remain on the current device and are not synchronised. They are stored as plain text, which is typical for browser extensions, so handle the key with the same care you would give it elsewhere.
 
 ---
 
 ## Privacy & Security
 
-Stax reads tab titles and URLs. That's the whole list.
+Stax only needs access to tab titles and URLs.
 
-- No page content, DOM, forms, inputs or cookies are ever read
-- No analytics, no telemetry, nothing phones home
-- Time tracking, stats, tab lineage and rules all stay in browser storage
-- If you enable AI, only tab titles and hostnames are sent, and only to the provider you picked
-- Stacklet's actions are limited to an allowlist. Anything outside it is dropped before it runs, and `javascript:`, `data:` and `file:` URLs are blocked
+- It never reads page content, the DOM, forms, inputs or cookies
+- There is no analytics collection, telemetry or background communication
+- Time tracking, statistics, tab relationships and classification rules are kept in browser-local storage
+- When the optional provider is enabled, only tab titles and hostnames are transmitted to the provider you selected
+- Stacklet can execute only operations included in its allowlist; unsupported actions are discarded, while `javascript:`, `data:` and `file:` URLs are blocked
 
 ---
 
 ## Development
 
-```
-modules/      background logic, bundled into background.js by build.js
+```text
+modules/      background logic (bundled into background.js through build.js)
 tests/        run with: node tests/run.js
 _locales/     English and German strings
 ```
 
-Run `node build.js` after editing anything in `modules/`, then reload the extension.
+After modifying anything under `modules/`, run `node build.js` before reloading the extension.
 
 ---
 

@@ -628,7 +628,11 @@ async function callAnthropic(apiKey, tabSummaries) {
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
+        // Required for calls made from a browser context. Without it the
+        // CORS preflight fails and fetch throws "Failed to fetch" before
+        // the request ever reaches Anthropic.
+        "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
@@ -1270,7 +1274,10 @@ async function callAnthropicSearch(apiKey, tabSummaries, query) {
   return fetchWithRetry(async () => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+                 // Required for calls made from a browser context.
+                 // Without it the CORS preflight fails and fetch throws.
+                 "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 256, messages: [{ role: "user", content: buildSearchPrompt(tabSummaries, query) }] })
     });
     if (!res.ok) {
@@ -1630,7 +1637,10 @@ async function callStackletProvider(promptText) {
       }
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+                 // Required for calls made from a browser context.
+                 // Without it the CORS preflight fails and fetch throws.
+                 "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content: promptText }] })
       });
       if (!res.ok) {
@@ -1733,7 +1743,7 @@ async function runStackletAction(action, windowId) {
   try {
     if (action.type === "smart_sort") {
       const res = await runHybridSort(windowId);
-      return { ok: true, detail: `Created ${res.groupsCreated} group(s).` };
+      return { ok: true, detail: `Created ${res.groupsCreated} group(s).`, groupIds: res.groupIds || [] };
     }
 
     if (action.type === "dedupe") {
@@ -1770,11 +1780,15 @@ async function runStackletAction(action, windowId) {
 
       // Group them on the way in if a name was given, so a research batch
       // doesn't just scatter across the tab strip.
+      const madeGroups = [];
       if (action.groupName && createdIds.length >= 2) {
         const groupId = await safeGroup(createdIds, windowId, action.groupName, action.color || "cyan");
-        if (groupId != null) await recordLastAction({ type: "sort", windowId, groupIds: [groupId] });
+        if (groupId != null) {
+          madeGroups.push(groupId);
+          await recordLastAction({ type: "sort", windowId, groupIds: [groupId] });
+        }
       }
-      return { ok: true, detail: `Opened ${createdIds.length} tab(s).` };
+      return { ok: true, detail: `Opened ${createdIds.length} tab(s).`, groupIds: madeGroups };
     }
 
     const liveTabs = await chrome.tabs.query({ windowId });
@@ -1787,7 +1801,9 @@ async function runStackletAction(action, windowId) {
       const groupId = await safeGroup(tabIds, windowId, action.name || "Stacklet", action.color || "grey");
       if (groupId == null) return { ok: false, error: "group-failed" };
       await recordLastAction({ type: "sort", windowId, groupIds: [groupId] });
-      return { ok: true, detail: `Grouped ${tabIds.length} tab(s).` };
+      // Returned so the chat can render the group as a clickable chip
+      // instead of just claiming it worked.
+      return { ok: true, detail: `Grouped ${tabIds.length} tab(s).`, groupIds: [groupId] };
     }
 
     if (action.type === "suspend_tabs") {
@@ -1879,6 +1895,152 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === "CLEAR_CHAT") {
     clearChatHistory().then(sendResponse);
+    return true;
+  }
+});
+
+// ---- Page summarisation (opt-in, per-tab consent) ----
+// Stacklet normally sees tab titles and hostnames only. This is the single
+// exception, and it's built so that the default state is genuinely no access
+// rather than "access we promise not to use":
+//
+//   1. The extension installs with no host permissions at all
+//   2. Turning the setting on triggers Chrome's own permission prompt
+//   3. Even then, nothing is read until the user picks specific tabs
+//   4. Only the tabs they picked are read, once, for that one request
+//   5. Revoking in Settings actually revokes the browser permission
+//
+// The permission check runs on every read, not just at enable time, so
+// revoking it externally (chrome://extensions) takes effect immediately.
+
+const PAGE_READ_ORIGINS = { origins: ["http://*/*", "https://*/*"] };
+const MAX_PAGE_CHARS = 6000;
+
+async function hasPageAccess() {
+  try {
+    const [perm, origins] = await Promise.all([
+      chrome.permissions.contains({ permissions: ["scripting"] }),
+      chrome.permissions.contains(PAGE_READ_ORIGINS),
+    ]);
+    return perm && origins;
+  } catch {
+    return false;
+  }
+}
+
+// NOTE: permissions.request() must be called from a user gesture inside an
+// extension page. Invoking it from the service worker silently fails, so the
+// request itself lives in popup.js and this only records the outcome.
+async function recordPageAccess(granted) {
+  await chrome.storage.sync.set({ pageReadEnabled: !!granted });
+  return { ok: true, granted: !!granted };
+}
+
+async function revokePageAccess() {
+  try {
+    await chrome.permissions.remove({
+      permissions: ["scripting"],
+      origins: PAGE_READ_ORIGINS.origins,
+    });
+    await chrome.storage.sync.set({ pageReadEnabled: false });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// Runs in the page. Pulls readable text and deliberately skips nav, script,
+// style, and form fields: form values are the most sensitive thing on a page
+// and there is no reason a summary would need them.
+function extractReadableText() {
+  const drop = ["script", "style", "noscript", "nav", "header", "footer", "aside", "form", "input", "textarea", "select"];
+  const clone = document.body.cloneNode(true);
+  drop.forEach(sel => clone.querySelectorAll(sel).forEach(n => n.remove()));
+  // Prefer the semantic content root when the page has one.
+  const main = clone.querySelector("main, article, [role='main']") || clone;
+  return (main.innerText || "").replace(/\s+/g, " ").trim();
+}
+
+// Reads one tab, but only after re-checking permission and confirming the
+// tab id was in the approved set.
+async function readTabContent(tabId, approvedIds) {
+  if (!approvedIds.includes(tabId)) return null;
+  if (!(await hasPageAccess())) return null;
+
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.url || !/^https?:/.test(tab.url)) return null;
+
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: extractReadableText,
+    });
+    const text = (result?.result || "").slice(0, MAX_PAGE_CHARS);
+    if (!text) return null;
+    return { id: tabId, title: tab.title || "", url: tab.url, text };
+  } catch (err) {
+    // A tab can be a PDF, a restricted page, or already closed. None of
+    // those are worth surfacing as an error; the summary just omits it.
+    console.warn("Stax: could not read tab", tabId, err.message);
+    return null;
+  }
+}
+
+async function summarizeTabs(approvedIds) {
+  if (!Array.isArray(approvedIds) || !approvedIds.length) {
+    return { ok: false, error: "no-tabs-approved" };
+  }
+  if (!(await hasPageAccess())) return { ok: false, error: "no-permission" };
+
+  const pages = [];
+  for (const id of approvedIds) {
+    const page = await readTabContent(id, approvedIds);
+    if (page) pages.push(page);
+  }
+  if (!pages.length) return { ok: false, error: "nothing-readable" };
+
+  const prompt = [
+    "Summarise these web pages for someone deciding what to keep open.",
+    "For each one: a single sentence on what it is, then one on whether it",
+    "looks worth keeping. Be concrete and brief.",
+    "",
+    "Return ONLY raw JSON, no fences:",
+    '{"summaries":[{"id":123,"what":"...","verdict":"..."}],"overall":"one sentence tying them together"}',
+    "",
+    JSON.stringify(pages.map(p => ({ id: p.id, title: p.title, text: p.text }))),
+  ].join("\n");
+
+  const res = await callStackletProvider(prompt);
+  if (!res.ok) return res;
+
+  try {
+    const parsed = JSON.parse(res.raw.replace(/```json|```/g, "").trim());
+    return {
+      ok: true,
+      summaries: Array.isArray(parsed.summaries) ? parsed.summaries : [],
+      overall: parsed.overall || "",
+      readCount: pages.length,
+    };
+  } catch (err) {
+    return { ok: false, error: "bad-response" };
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "PAGE_ACCESS_STATE") {
+    hasPageAccess().then(granted => sendResponse({ ok: true, granted }));
+    return true;
+  }
+  if (msg.type === "RECORD_PAGE_ACCESS") {
+    recordPageAccess(msg.granted).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "REVOKE_PAGE_ACCESS") {
+    revokePageAccess().then(sendResponse);
+    return true;
+  }
+  if (msg.type === "SUMMARIZE_TABS") {
+    summarizeTabs(msg.tabIds).then(sendResponse);
     return true;
   }
 });

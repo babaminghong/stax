@@ -2421,3 +2421,157 @@ body {
   min-height: 20px;
 }
 .chat-footer .wizard-hint { text-align: right; flex: 1; margin: 0; }
+
+/* ================= Motion system =================
+   Durations were previously ad hoc: twelve different values across the file,
+   chosen per component. These four cover everything, so unrelated parts of
+   the UI move at the same speed and the whole thing feels like one object.
+
+   The rule for picking one: the further something travels, the longer it
+   takes. A button tint is instant, a panel sliding in is not. */
+:root {
+  --t-instant: 90ms;    /* colour and opacity on small controls */
+  --t-quick:   160ms;   /* hover lifts, presses, small shifts */
+  --t-normal:  260ms;   /* entrances, expands, view changes */
+  --t-slow:    420ms;   /* large travel, stage-sized movement */
+
+  /* Two curves, used consistently: ease-out for anything arriving or
+     settling, spring only where a physical overshoot reads as intentional. */
+  --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Entrance used by list items everywhere. Transform and opacity only, both
+   compositable, so it never triggers layout during the animation. */
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.group-item,
+.archive-item,
+.snoozed-item,
+.insights-row,
+.tree-node {
+  animation: itemIn var(--t-normal) var(--ease-soft) both;
+}
+
+/* Sliding indicator behind the active nav tab. Previously the background
+   jumped between tabs; now one pill travels, which reads as a single object
+   moving rather than two separate things blinking. */
+.nav-tabs { position: relative; }
+.nav-indicator {
+  position: absolute;
+  opacity: 0;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 9px;
+  background: var(--card-bg-solid);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: transform var(--t-normal) var(--ease-soft),
+              width var(--t-normal) var(--ease-soft);
+  pointer-events: none;
+  z-index: 0;
+}
+.nav-tab { position: relative; z-index: 1; }
+/* The moving pill supplies the active background now, so the tab itself
+   must not paint its own or you get two stacked highlights. */
+.nav-tab.active { background: transparent; box-shadow: none; }
+
+/* Views cross-fade instead of hard-swapping display. */
+.view-fading { animation: viewIn var(--t-normal) var(--ease-soft) both; }
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Presses feel connected when the element yields slightly and returns fast.
+   Shorter on the way down than the way up, which is how physical buttons
+   behave. */
+.btn:active:not(:disabled),
+.tool-tile:active,
+.pill-btn:active,
+.inbox-row:active,
+.snooze-opt:active {
+  transition-duration: var(--t-instant);
+}
+
+/* Anything that moves should promote itself only while it is moving.
+   Leaving will-change on permanently costs memory for no benefit. */
+.tool-tile:hover,
+.btn:hover,
+.group-item:hover { will-change: transform; }
+
+/* Honour the system setting. Everything still works, it just arrives
+   immediately instead of travelling. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ================= Page-read consent ================= */
+.consent-note {
+  font-size: 11.5px;
+  color: var(--tertiaryLabel);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.consent-list {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.consent-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--t-quick) ease, border-color var(--t-quick) ease;
+}
+.consent-item:hover { background: var(--systemGrey5); }
+/* Ticked rows are outlined, not just checked, so the set being sent is
+   readable at a glance before you confirm. */
+.consent-item.on { background: var(--systemGrey5); border-color: var(--accent-yellow); }
+.consent-item input { accent-color: var(--accent-yellow); flex-shrink: 0; }
+.consent-title {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.consent-host { font-size: 10.5px; color: var(--tertiaryLabel); flex-shrink: 0; }
+
+/* ================= Clickable group chips in chat ================= */
+.chat-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 999px;
+  border: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--t-quick) var(--ease-soft), filter var(--t-quick) ease;
+}
+.group-chip:hover { transform: translateY(-1.5px); filter: brightness(1.06); }
+.group-chip:active { transform: translateY(0) scale(0.97); }
+.group-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: 0.55; }
+.group-chip-n { opacity: 0.6; font-weight: 600; }

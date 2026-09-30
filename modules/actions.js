@@ -396,7 +396,10 @@ async function callAnthropicSearch(apiKey, tabSummaries, query) {
   return fetchWithRetry(async () => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+                 // Required for calls made from a browser context.
+                 // Without it the CORS preflight fails and fetch throws.
+                 "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 256, messages: [{ role: "user", content: buildSearchPrompt(tabSummaries, query) }] })
     });
     if (!res.ok) {

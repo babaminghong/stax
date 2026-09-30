@@ -89,7 +89,12 @@
     }
   },
   "optional_permissions": [
+    "scripting",
     "sessions"
   ],
-  "default_locale": "en"
+  "default_locale": "en",
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
 }
