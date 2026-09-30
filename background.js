@@ -3145,4 +3145,4 @@ async function reconcileSnoozeAlarms() {
 }
 
 chrome.runtime.onStartup.addListener(reconcileSnoozeAlarms);
-chrome.runtime.onInstalled.addListener(reconcileSnoozeAlarms);
+chrome.runtime.onInstalled.addListener(reconcileSnoozeAlarms); 
