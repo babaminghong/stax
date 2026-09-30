@@ -1,4 +1,4 @@
-# Stax v1.4.0
+# Stax v1.5.0
 
 > A privacy-first tab manager and AI browsing companion for Chrome and Firefox.
 
